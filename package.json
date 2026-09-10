@@ -1,0 +1,9 @@
+{
+  "name": "evaluacion-siembra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prototipo de evaluación de siembra con proxy para la API corporativa",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
