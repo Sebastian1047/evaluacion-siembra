@@ -1,15 +1,87 @@
-// Copia temporal de los empleados obtenidos desde GetEmpleados.
-// Se usa para validar el prototipo mientras la API corporativa no permite CORS/HTTPS.
-const empleadosReales=[
-['110178','\u0002                                       ',38],['127978','ARBOLEDA ARANGO VERONICA',38],['067520','ARCILA BEDOYA JESUS MARIA',38],['205788','ARRIETA NAVARRO CAMILO ANDRES',38],['206721','ATENCIO BENITEZ ROBINSON ANDRES',38],['201654','BALTAZAR CASTILLO SAMUEL DAVID',38],['176248','BUITRAGO PEÑA MARIA CAMILA',38],['190824','CALY RODRIGUEZ LEANIS',38],['027487','CARDONA CORREA MARIA VIVIANA',38],['111605','CARDONA FLOREZ DANIELA',38],['027645','CARDONA GALLEGO YESICA ALEXANDRA',38],['023175','CARDONA GUZMAN JOHN JAIRO',38],['028292','CARDONA PAVAS WANDERLEY',38],['191215','CASTAÑEDA BERNAL EUCLIDES',38],['136652','CASTRO RIOS RAUL DE JESUS',38],['077810','CATAÑO MARIN ARQUIDIO DE JESUS',38],['140209','CHAVARRIA VARGAS EIDY YULIANA',38],['187374','CHICA BEDOYA MANUEL JOSE',38],['209441','CONTRERAS ALVIS MISHEL KARIN',38],['095592','DELGADO VALENCIA ANDRES FELIPE',38],['017854','ECHEVERRI DUQUE OSCAR DE JESUS',38],['127822','FLOREZ OSPINA ROGER IVAN',38],['027364','FLOREZ VILLADA ARLEY',38],['207479','GALEANO BEDOYA FRANCY DAYELI',38],['215525','GOMEZ JIMENEZ SARA SOFIA',38],['016425','GOMEZ VILLADA ERASMO ANTONIO',38],['019064','GONZALEZ CARDONA ANA SOFIA',38],['092135','GONZALEZ VALENCIA CAROLINA',38],['214663','GRANOBLES PION JHON HENRY',38],['157965','GUZMAN LOPEZ CARLOS MARIO',38],['196136','HERNANDEZ CARDONA MARIANA',38],['203277','HERNANDEZ NAVARRO CRISTIAN ANDRES',38],['011575','HOLGUIN MARTINEZ ELKIN DARIO',38],['063142','JARAMILLO LONDOÑO FRAY ADIEL',38],['143650','LARA BARRIOS ELIZABETH',38],['126320','LOPEZ HENAO FABIAN ANDRES',38],['123932','LOPEZ LLANO BRIYIT VALENTINA',38],['027292','LOPEZ RAMIREZ VICTOR ALFONSO',38],['201979','MACEA RUIZ YAINER',38],['161778','MANJARREZ BELEÑO FABIAN DAVID',38],['184149','MARTINEZ SANCHEZ NAHOMY DE LA CONSOLACIO',38],['069522','MEDINA OSPINA ANGIE TATIANA',38],['088912','MENDEZ LLORENTE JOSE DANIEL',38],['214222','MERCADO PADILLA ADIMAEL JOSE',38],['158523','MERCADO RUBIO ESNEIDER',38],['126660','MONTOYA COLORADO LUIS FABIO',38],['157978','MORALES INFANTE EDITH ALEJANDRA',38],['033119','OCAMPO CASTAÑO OLGA LUCIA',38],['191881','OCAMPO RONDON ALBA MARIELA',38],['211752','OSPINO DIAZ JOSE ANTONIO',38],['187905','PATERNINA SALGADO ROSA EMILIA',38],['066678','PATIÑO PATIÑO SEBASTIAN',38],['137716','PAVA BARROSO CANDELARIA INES',38],['006108','QUINTERO GALLEGO NORA AIDA',38],['029647','RAMIREZ CARMONA CARLOS MARIO',38],['187014','RAMIREZ MUÑOZ JESSICA ANDREA',38],['058785','RAMIREZ URIBE MARIA LILIANA',38],['193603','RAUDALES CUELLO EDUAR JOSE',38],['011573','RENDON OTALVARO RUBIELA',38],['028418','RIOS RIOS JUAN ESTEBAN',38],['023463','ROMAN HENAO DANIELA',38],['196177','SANCHEZ BARRIOS MARYURIS PAOLA',38],['030404','SANCHEZ RESTREPO LUISA FERNANDA',38],['196749','SANES ARIZA SARA LEONOR',38],['200457','SUAREZ FLOREZ JOSE MIGUEL',38],['201652','SUAREZ GARCES LUCIANA',38],['201656','TEHERAN RUIZ LINA PATRICIA',38],['215782','TRESPALACIOS DAVID ANDRES FELIPE',38],['206730','URBIÑA TOSCANO YOLEIDYS MARIA',38],['150127','VALENCIA DAVILA MARICELA',38],['011601','VALLEJO ROMAN HERSILIA',38],['033339','VELASQUEZ MONTOYA YUBER ALEXANDER',38],['691430','VILLADA ARIAS ADRIAN',38]
-].map(([codigo,nombre,area])=>({codigo,nombre:nombre.replace(/[\u0000-\u001F\u007F]/g,'').trim(),area})).filter(e=>e.nombre);
+// El navegador consulta el proxy local, que a su vez accede a la API corporativa.
+const EMPLEADOS_API_URL = "/api/empleados";
 
-function cargarEmpleadosRealesDePrueba(){
-  const actuales=new Set((state.people||[]).map(p=>String(p.doc)));
-  state.available=empleadosReales.filter(e=>!actuales.has(e.codigo)).map(e=>({id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area}));
-  save();
+function actualizarEmpleadosDisponibles(empleados) {
+  const actuales = new Set((state.people || []).map((persona) => String(persona.doc)));
+
+  const empleadosValidos = empleados
+    .map((empleado) => ({
+      codigo: String(empleado.codigo || "").trim(),
+      nombre: String(empleado.nombre || "")
+        .replace(/[\u0000-\u001F\u007F]/g, "")
+        .trim(),
+      area: empleado.area,
+    }))
+    .filter((empleado) => empleado.codigo && empleado.nombre);
+
+  state.available = empleadosValidos
+    .filter((empleado) => !actuales.has(empleado.codigo))
+    .map((empleado) => ({
+      id: `emp-${empleado.codigo}`,
+      name: empleado.nombre,
+      doc: empleado.codigo,
+      area: empleado.area,
+    }));
+
+  return {
+    total: empleadosValidos.length,
+    disponibles: state.available.length,
+  };
 }
 
-// Al abrir Agregar, sustituye la lista ficticia por la copia temporal real.
-const _addPersonConDatosFicticios=addPerson;
-addPerson=function(){cargarEmpleadosRealesDePrueba();_addPersonConDatosFicticios();};
+async function cargarEmpleadosDesdeApi() {
+  const respuesta = await fetch(EMPLEADOS_API_URL, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!respuesta.ok) {
+    throw new Error(`La API respondió con HTTP ${respuesta.status}`);
+  }
+
+  const empleados = await respuesta.json();
+  if (!Array.isArray(empleados)) {
+    throw new Error("La API no devolvió una lista de empleados");
+  }
+
+  return actualizarEmpleadosDisponibles(empleados);
+}
+
+function mostrarEstadoDeEmpleados(mensaje, permitirReintento = false) {
+  const contenedor = document.querySelector("#avail");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `<div class="card muted">${mensaje}${
+    permitirReintento
+      ? '<br><br><button class="btn secondary" onclick="addPerson()">Reintentar</button>'
+      : ""
+  }</div>`;
+}
+
+const mostrarPantallaAgregar = addPerson;
+addPerson = function () {
+  state.available = [];
+  mostrarPantallaAgregar();
+  mostrarEstadoDeEmpleados("Consultando empleados en la fuente corporativa...");
+
+  cargarEmpleadosDesdeApi()
+    .then(({ disponibles }) => {
+      if (state.view !== "agregar") return;
+      mostrarPantallaAgregar();
+      const contador = document.querySelector("#available-count");
+      if (contador) {
+        contador.textContent = `${disponibles} personas disponibles para agregar`;
+      }
+      toast("Lista de empleados actualizada");
+    })
+    .catch((error) => {
+      console.error("No fue posible consultar la API de empleados:", error);
+      if (state.view !== "agregar") return;
+      mostrarEstadoDeEmpleados("No fue posible consultar los empleados.", true);
+      toast("Error consultando la fuente corporativa");
+    });
+};
+
+if (state.view === "agregar") {
+  addPerson();
+}

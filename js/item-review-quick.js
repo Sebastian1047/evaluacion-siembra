@@ -1,6 +1,80 @@
-function quickReviewItem(id){let reviews=weekReviews();if(reviews[id])return;reviews[id]={noncompliant:[],savedAt:new Date().toLocaleString('es-CO'),quick:true};state.pending=(state.pending||0)+1;save();render();toast('Ítem revisado sin novedades')}
-function openCriterionReview(id){state.activeCriterion=id;save();render()}
-const originalItemEvaluation=itemEvaluation;
-function enhanceQuickItems(){let reviews=weekReviews();document.querySelectorAll('.item-option').forEach((el,i)=>{let c=seed.criteria[i];if(!c)return;let r=reviews[c[0]],failures=(r?.noncompliant||[]).length;el.onclick=null;el.style.gap='8px';el.style.cursor='default';el.style.background=r?(failures?'#a9d5b4':'#d9efdf'):'#fff';el.style.borderColor=r?(failures?'#57976a':'#b9d8c1'):'';let label=document.createElement('button');label.type='button';label.style.cssText='border:0;background:transparent;cursor:pointer;font:inherit;text-align:left;flex:1;padding:0';label.innerHTML='<b>'+c[1]+'</b>'+(r&&failures?'<br><small>'+failures+' novedad'+(failures===1?'':'es')+'</small>':'');label.onclick=()=>openCriterionReview(c[0]);let action=document.createElement('button');action.type='button';action.setAttribute('aria-label',r?'Ítem revisado':'Marcar ítem revisado sin novedades');action.style.cssText='width:30px;height:30px;border-radius:7px;border:2px solid '+(r?'#3d7e50':'#9aa4a0')+';background:'+(r?'#3d7e50':'#fff')+';color:#fff;font-weight:800;font-size:18px;cursor:'+(r?'default':'pointer')+';padding:0;line-height:24px';action.textContent=r?'✓':'';if(!r)action.onclick=e=>{e.stopPropagation();quickReviewItem(c[0])};el.innerHTML='';el.append(label,action)});addEvaluationSyncButton()}
-function addEvaluationSyncButton(){if(document.querySelector('#evaluation-sync'))return;let menu=document.querySelector('.item-menu');if(!menu)return;let box=document.createElement('section');box.id='evaluation-sync';box.className='card';box.style.cssText='margin-bottom:14px;grid-column:1/-1';box.innerHTML='<div class="row between"><div><b>Sincronización</b><div class="muted small">'+(state.pending?state.pending+' pendientes':'Todo sincronizado')+'</div></div><button class="btn secondary" onclick="syncModal()">Sincronizar</button></div>';let layout=menu.parentElement;layout.parentElement.insertBefore(box,layout)}
-itemEvaluation=function(){originalItemEvaluation();setTimeout(enhanceQuickItems,10)};
+function quickReviewItem(id) {
+  let reviews = weekReviews();
+  if (reviews[id]) return;
+  reviews[id] = { noncompliant: [], savedAt: new Date().toLocaleString('es-CO'), quick: true };
+  state.pending = (state.pending || 0) + 1;
+  save();
+  render();
+  toast('Ítem revisado sin novedades');
+}
+function openCriterionReview(id) {
+  state.activeCriterion = id;
+  save();
+  render();
+}
+const originalItemEvaluation = itemEvaluation;
+function enhanceQuickItems() {
+  let reviews = weekReviews();
+  document.querySelectorAll('.item-option').forEach((el, i) => {
+    let c = seed.criteria[i];
+    if (!c) return;
+    let r = reviews[c[0]],
+      failures = (r?.noncompliant || []).length;
+    el.onclick = null;
+    el.style.gap = '8px';
+    el.style.cursor = 'default';
+    el.style.background = r ? (failures ? '#a9d5b4' : '#d9efdf') : '#fff';
+    el.style.borderColor = r ? (failures ? '#57976a' : '#b9d8c1') : '';
+    let label = document.createElement('button');
+    label.type = 'button';
+    label.style.cssText =
+      'border:0;background:transparent;cursor:pointer;font:inherit;text-align:left;flex:1;padding:0';
+    label.innerHTML =
+      '<b>' +
+      c[1] +
+      '</b>' +
+      (r && failures
+        ? '<br><small>' + failures + ' novedad' + (failures === 1 ? '' : 'es') + '</small>'
+        : '');
+    label.onclick = () => openCriterionReview(c[0]);
+    let action = document.createElement('button');
+    action.type = 'button';
+    action.setAttribute('aria-label', r ? 'Ítem revisado' : 'Marcar ítem revisado sin novedades');
+    action.style.cssText =
+      'width:30px;height:30px;border-radius:7px;border:2px solid ' +
+      (r ? '#3d7e50' : '#9aa4a0') +
+      ';background:' +
+      (r ? '#3d7e50' : '#fff') +
+      ';color:#fff;font-weight:800;font-size:18px;cursor:' +
+      (r ? 'default' : 'pointer') +
+      ';padding:0;line-height:24px';
+    action.textContent = r ? '✓' : '';
+    if (!r)
+      action.onclick = (e) => {
+        e.stopPropagation();
+        quickReviewItem(c[0]);
+      };
+    el.innerHTML = '';
+    el.append(label, action);
+  });
+  addEvaluationSyncButton();
+}
+function addEvaluationSyncButton() {
+  if (document.querySelector('#evaluation-sync')) return;
+  let menu = document.querySelector('.item-menu');
+  if (!menu) return;
+  let box = document.createElement('section');
+  box.id = 'evaluation-sync';
+  box.className = 'card';
+  box.style.cssText = 'margin-bottom:14px;grid-column:1/-1';
+  box.innerHTML =
+    '<div class="row between"><div><b>Sincronización</b><div class="muted small">' +
+    (state.pending ? state.pending + ' pendientes' : 'Todo sincronizado') +
+    '</div></div><button class="btn secondary" onclick="syncModal()">Sincronizar</button></div>';
+  let layout = menu.parentElement;
+  layout.parentElement.insertBefore(box, layout);
+}
+itemEvaluation = function () {
+  originalItemEvaluation();
+  setTimeout(enhanceQuickItems, 10);
+};
