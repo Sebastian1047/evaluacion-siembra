@@ -1,10 +1,11 @@
 // Permisos de navegación por rol.
-// La gestión del grupo pertenece exclusivamente al Asegurador de calidad.
+// El Asegurador de calidad se limita a gestionar el grupo y recoger la información.
+// Historial, análisis y estadísticas pertenecen al Analista.
 const baseGoByRole = go;
 
 nav = function(active){
   const items = state.role === 'monitor'
-    ? [['grupo','Grupo'],['historial','Historial']]
+    ? [['grupo','Grupo']]
     : [['analisis','Análisis'],['historial','Historial']];
   return `<nav class="bottom">${items.map(([v,n])=>`<button class="${active===v?'active':''}" onclick="go('${v}')">${n}</button>`).join('')}</nav>`;
 };
@@ -16,11 +17,11 @@ go = function(v){
     render();
     return toast('La gestión del grupo corresponde al Asegurador de calidad');
   }
-  if(state.role === 'monitor' && v === 'evaluarItems'){
+  if(state.role === 'monitor' && ['evaluarItems','historial','analisis','resultados','informe','tablaSemanal','correoInforme','historialPersona'].includes(v)){
     state.view = 'grupo';
     save();
     render();
-    return toast('La opción Evaluar ya no pertenece al Asegurador de calidad');
+    return toast(v==='historial'?'El historial corresponde al Analista':'Esta opción corresponde al Analista');
   }
   return baseGoByRole(v);
 };
@@ -31,7 +32,7 @@ if(state.role === 'analista' && ['grupo','gestion','agregar','seguimiento','nuev
   state.view = 'analisis';
   save();
   render();
-}else if(state.role === 'monitor' && state.view === 'evaluarItems'){
+}else if(state.role === 'monitor' && ['evaluarItems','historial','analisis','resultados','informe','tablaSemanal','correoInforme','historialPersona'].includes(state.view)){
   state.view = 'grupo';
   save();
   render();
