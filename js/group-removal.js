@@ -5,20 +5,17 @@
   window.personCard = function(p){
     let pc=Math.min(100,Math.round(p.done/p.required*100));
     let turn=typeof p.sampleTurn==='number'?p.sampleTurn:(Number(p.done)||0);
-    return `<article class="card person" data-name="${p.name.toLowerCase()}" onclick="openPerson('${p.id}')" style="padding-top:14px;padding-bottom:14px">
-      <div class="row between" style="gap:10px">
-        <b>${p.name}</b>
-        <span class="badge ${pc<100?'warn':''}">${pc===100?'Completado':'En proceso'}</span>
+    return `<article class="card person" data-name="${p.name.toLowerCase()}" onclick="openPerson('${p.id}')" style="padding:9px 12px;margin-bottom:7px">
+      <div class="row between" style="gap:8px;align-items:center;min-height:28px">
+        <b style="line-height:1.15">${p.name}</b>
+        <span class="badge ${pc<100?'warn':''}" style="padding:3px 7px;font-size:11px">${pc===100?'Completado':'En proceso'}</span>
       </div>
-      <div class="row between" style="margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
-        <span><b>${p.done} / ${p.required}</b> evaluaciones</span>
-        <button class="btn danger small" style="margin:0;padding:6px 9px" onclick="event.stopPropagation();confirmRemoveWorker('${p.id}')">Quitar de la semana</button>
+      <div style="display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;margin-top:5px;font-size:12px;line-height:1.15">
+        <span><b>${p.done}/${p.required}</b> evaluaciones</span>
+        <button class="btn danger small" style="margin:0;padding:4px 7px;min-height:0;font-size:11px;line-height:1.1" onclick="event.stopPropagation();confirmRemoveWorker('${p.id}')">Quitar de la semana</button>
+        <span class="muted" style="text-align:right;white-space:nowrap">Turno resuelto: <b>${turn}</b></span>
       </div>
-      <div class="row between" style="margin-top:7px;gap:8px">
-        <span class="muted small">Turno resuelto: <b>${turn}</b></span>
-        <b class="small">${pc}%</b>
-      </div>
-      <div class="progress" style="margin-top:5px"><span style="width:${pc}%"></span></div>
+      <div class="progress" style="margin-top:5px;height:4px"><span style="width:${pc}%"></span></div>
     </article>`;
   };
 
