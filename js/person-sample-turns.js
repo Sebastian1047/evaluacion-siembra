@@ -1,5 +1,5 @@
 // Control de turnos de muestra en la evaluación individual.
-// evaluationTurn = turnos resueltos (evaluados u omitidos).
+// sampleTurn = turnos resueltos (evaluados u omitidos).
 // done/required conserva evaluaciones efectivamente realizadas/meta efectiva.
 if(!state.sampleTurnOmissions)state.sampleTurnOmissions=[];
 function ensureSampleTurns(){
@@ -9,6 +9,7 @@ function ensureSampleTurns(){
   });
 }
 function minSampleTurn(){ensureSampleTurns();return state.people.length?Math.min(...state.people.map(p=>p.sampleTurn)):0}
+function currentGroupSampleTurn(){return minSampleTurn()+1}
 function pendingForTurn(turn){ensureSampleTurns();return state.people.filter(p=>p.sampleTurn<turn)}
 function canAdvancePerson(p){
   ensureSampleTurns();
@@ -34,8 +35,6 @@ function confirmOmitCurrentSample(){
   state.sampleTurnOmissions.push({week:state.currentWeek,person:p.id,turn:p.sampleTurn,date:new Date().toISOString()});
   save();closeModal();render();toast('Muestra no realizada · turno '+p.sampleTurn+' resuelto');
 }
-
-// Intercepta la entrada a una nueva evaluación individual.
 const goBeforeSampleTurns=go;
 go=function(v){
   if(v==='nueva'&&state.role==='monitor'){
@@ -43,8 +42,6 @@ go=function(v){
   }
   return goBeforeSampleTurns(v);
 };
-
-// Al guardar una evaluación efectiva, avanza también el turno de control.
 const commitEvalBeforeSampleTurns=commitEval;
 commitEval=function(ids){
   let p=current();if(!p)return commitEvalBeforeSampleTurns(ids);
@@ -53,20 +50,29 @@ commitEval=function(ids){
   commitEvalBeforeSampleTurns(ids);
   if(p.done>beforeDone){p.sampleTurn=info.next;save()}
 };
-
 function decorateSampleTurnUI(){
   ensureSampleTurns();
   if(state.role!=='monitor')return;
   if(state.view==='grupo'){
+    // Indicador principal al lado de Semana N: muestra el turno que el grupo está resolviendo ahora.
+    let hero=document.querySelector('.hero');
+    if(hero&&!hero.querySelector('#group-current-sample-turn')){
+      let h2=hero.querySelector('h2');
+      if(h2){
+        let row=document.createElement('div');row.className='row between';row.style.cssText='align-items:center;margin-top:8px;gap:12px';
+        h2.parentNode.insertBefore(row,h2);row.appendChild(h2);h2.style.margin='0';
+        let badge=document.createElement('span');badge.id='group-current-sample-turn';badge.className='badge';badge.style.cssText='font-size:14px;padding:7px 10px;white-space:nowrap';badge.innerHTML=`Turno de muestra ${currentGroupSampleTurn()}`;row.appendChild(badge);
+      }
+    }
     document.querySelectorAll('.person').forEach(card=>{
       let name=card.dataset.name,p=state.people.find(x=>x.name.toLowerCase()===name);if(!p||card.querySelector('.sample-turn-info'))return;
-      let d=document.createElement('div');d.className='sample-turn-info muted small';d.style.marginTop='8px';d.innerHTML=`Turno de muestra: <b>${p.sampleTurn}</b> · Evaluaciones: <b>${p.done} / ${p.required}</b>`;card.appendChild(d);
+      let d=document.createElement('div');d.className='sample-turn-info muted small';d.style.marginTop='8px';d.innerHTML=`Turno resuelto: <b>${p.sampleTurn}</b> · Evaluaciones: <b>${p.done} / ${p.required}</b>`;card.appendChild(d);
     });
   }
   if(state.view==='seguimiento'){
     let p=current();if(!p)return;let hero=document.querySelector('.hero');if(!hero||hero.querySelector('#sample-turn-person'))return;
     let box=document.createElement('div');box.id='sample-turn-person';box.className='card';box.style.marginTop='12px';
-    box.innerHTML=`<div class="row between"><span>Turno de muestra</span><b>${p.sampleTurn}</b></div><div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra</button>`;
+    box.innerHTML=`<div class="row between"><span>Turno de muestra resuelto</span><b>${p.sampleTurn}</b></div><div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra</button>`;
     hero.appendChild(box);
   }
 }
