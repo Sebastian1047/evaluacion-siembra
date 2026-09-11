@@ -64,10 +64,6 @@ function decorateSampleTurnUI(){
         let badge=document.createElement('span');badge.id='group-current-sample-turn';badge.className='badge';badge.style.cssText='font-size:14px;padding:7px 10px;white-space:nowrap';badge.innerHTML=`Turno de muestra ${currentGroupSampleTurn()}`;row.appendChild(badge);
       }
     }
-    document.querySelectorAll('.person').forEach(card=>{
-      let name=card.dataset.name,p=state.people.find(x=>x.name.toLowerCase()===name);if(!p||card.querySelector('.sample-turn-info'))return;
-      let d=document.createElement('div');d.className='sample-turn-info muted small';d.style.marginTop='8px';d.innerHTML=`Turno resuelto: <b>${p.sampleTurn}</b> · Evaluaciones: <b>${p.done} / ${p.required}</b>`;card.appendChild(d);
-    });
   }
   if(state.view==='seguimiento'){
     let p=current();if(!p)return;let hero=document.querySelector('.hero');if(!hero||hero.querySelector('#sample-turn-person'))return;
