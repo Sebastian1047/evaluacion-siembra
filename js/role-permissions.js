@@ -1,12 +1,12 @@
 // Permisos de navegación por rol.
 // El Asegurador de calidad se limita a gestionar el grupo y recoger la información.
+// Como ya no tiene otras secciones de navegación, no necesita mostrar el ítem "Grupo".
 // Historial, análisis y estadísticas pertenecen al Analista.
 const baseGoByRole = go;
 
 nav = function(active){
-  const items = state.role === 'monitor'
-    ? [['grupo','Grupo']]
-    : [['analisis','Análisis'],['historial','Historial']];
+  if(state.role === 'monitor') return '';
+  const items = [['analisis','Análisis'],['historial','Historial']];
   return `<nav class="bottom">${items.map(([v,n])=>`<button class="${active===v?'active':''}" onclick="go('${v}')">${n}</button>`).join('')}</nav>`;
 };
 
