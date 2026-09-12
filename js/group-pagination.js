@@ -1,7 +1,7 @@
-// Pagina la lista de sembradores del grupo cuando supera 10 personas.
+// Pagina la lista de sembradores del grupo cuando supera 8 personas.
 // Solo afecta la presentación: las reglas del grupo siguen trabajando con state.people completo.
 let groupPeoplePage=1;
-const GROUP_PEOPLE_PER_PAGE=10;
+const GROUP_PEOPLE_PER_PAGE=8;
 
 function decorateGroupPagination(){
   if(state.role!=='monitor'||state.view!=='grupo')return;
