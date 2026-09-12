@@ -6,6 +6,27 @@ function groupWeekIsClosed(){return !!groupWeekRecord()}
 function groupWeekEditEnabled(){let r=groupWeekRecord();return !!(r&&r.editEnabled&&!r.permanentlyLocked)}
 function groupWeekReadOnly(){return groupWeekIsClosed()&&!groupWeekEditEnabled()}
 function closedWeekMessage(){toast('Semana cerrada · información disponible solo para consulta')}
+function weekHasReviewedSample(){return (state.people||[]).some(p=>(Number(p.done)||0)>0)}
+function showWeekWithoutReviewedSamples(){
+  modal(`<h3>No se puede cerrar la Semana ${state.currentWeek}</h3><p>Aunque todos los turnos de muestra hayan sido resueltos, una semana con <b>0 muestras revisadas</b> no puede guardarse como semana cerrada.</p><p>Para cerrar la semana debe existir <b>al menos una evaluación realizada</b> a uno de los sembradores.</p><div class="card" style="margin:12px 0"><b>¿La semana fue creada con un consecutivo incorrecto?</b><p class="muted" style="margin-bottom:0">Mientras no exista ninguna muestra revisada, esta semana puede eliminarse para corregir el consecutivo y crear la semana correspondiente.</p></div><div class="row"><button class="btn ghost" onclick="closeModal()">Volver</button><button class="btn danger" onclick="askDeleteEmptyWeek()">Eliminar semana</button></div>`);
+}
+function askDeleteEmptyWeek(){
+  if(groupWeekIsClosed())return closedWeekMessage();
+  if(weekHasReviewedSample())return toast('La semana ya contiene evaluaciones y no puede eliminarse');
+  modal(`<h3>Eliminar Semana ${state.currentWeek}</h3><p>Esta opción solo está disponible porque la semana todavía tiene <b>0 muestras revisadas</b>.</p><p class="muted">Se eliminará la semana operativa actual para permitir corregir el número/consecutivo. Esta acción no debe utilizarse cuando ya exista información de evaluación.</p><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmDeleteEmptyWeek()">Eliminar semana</button></div>`);
+}
+function confirmDeleteEmptyWeek(){
+  if(groupWeekIsClosed()||weekHasReviewedSample())return closeModal(),toast('Esta semana ya no puede eliminarse');
+  let deletedWeek=state.currentWeek;
+  // Conserva los trabajadores como disponibles; elimina únicamente el período operativo vacío.
+  (state.people||[]).forEach(p=>{if(!(state.available||[]).some(x=>x.id===p.id))state.available.push({id:p.id,name:p.name,doc:p.doc})});
+  state.people=[];state.evals=[];state.pending=0;state.selectedPerson=null;
+  if(state.sampleTurnOmissions)state.sampleTurnOmissions=state.sampleTurnOmissions.filter(x=>x.week!==deletedWeek);
+  if(state.itemReviews)delete state.itemReviews['w'+deletedWeek];
+  if(state.weekSampleClosure)delete state.weekSampleClosure['w'+deletedWeek];
+  state.currentWeek=Math.max(1,deletedWeek-1);
+  save();closeModal();state.view='grupo';render();toast('Semana '+deletedWeek+' eliminada');
+}
 function unequalSampleTurns(){
   if(typeof ensureSampleTurns==='function')ensureSampleTurns();
   let people=state.people||[];if(!people.length)return null;
@@ -20,11 +41,13 @@ function showUnequalTurns(info){
 function askCloseGroupWeek(){
   if(groupWeekIsClosed())return closedWeekMessage();
   let unequal=unequalSampleTurns();if(unequal)return showUnequalTurns(unequal);
+  if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
   let turn=(state.people&&state.people.length)?(Number(state.people[0].sampleTurn)||0):0;
   modal(`<h3>¿Está seguro que quiere cerrar la Semana ${state.currentWeek}?</h3><p>Todos los sembradores están nivelados en el <b>turno de muestra ${turn}</b>.</p><p>Si cierra la semana, podrá <b>ver la información</b>, pero no podrá modificarla.</p><div class="card" style="margin:12px 0"><b>Correcciones después del cierre</b><p class="muted" style="margin-bottom:0">Si necesita modificar algo, debe comunicarse con el <b>Analista</b> para que le habilite temporalmente la modificación. Esto solo será posible <b>antes de crear la nueva semana</b>. Una vez creada la siguiente semana, ni el Analista podrá habilitar modificaciones sobre esta semana.</p></div><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmCloseGroupWeek()">Cerrar semana</button></div>`);
 }
 function confirmCloseGroupWeek(){
   let unequal=unequalSampleTurns();if(unequal)return showUnequalTurns(unequal);
+  if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
   state.closedGroupWeeks['w'+state.currentWeek]={closed:true,closedAt:new Date().toISOString(),editEnabled:false,permanentlyLocked:false};
   save();closeModal();state.view='grupo';render();toast('Semana '+state.currentWeek+' cerrada · modo solo lectura');
 }
