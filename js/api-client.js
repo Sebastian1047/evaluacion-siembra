@@ -29,6 +29,18 @@
     return request('/api/items');
   }
 
+  async function getWeek(year, number) {
+    return request(`/api/semanas/${year}/${number}`);
+  }
+
+  async function ensureWeek({ anio, numero, inicio, fin }) {
+    return request('/api/semanas/asegurar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anio, numero, inicio, fin })
+    });
+  }
+
   // Carga los ítems reales desde Azure y los adapta al formato que el
   // prototipo ya usa: [codigo, nombre, esCritico]. Si Azure no responde,
   // se conservan los criterios locales de data.js para no romper la demo.
@@ -68,6 +80,8 @@
   window.SiembraApi = Object.freeze({
     baseUrl: API_BASE_URL,
     getItems,
+    getWeek,
+    ensureWeek,
     loadCriteriaIntoSeed
   });
 })();
