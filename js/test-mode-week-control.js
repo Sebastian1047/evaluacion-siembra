@@ -12,19 +12,32 @@
     modal(`<h3>Crear semana de prueba</h3><p class="muted">Modo de pruebas: el Asegurador puede abrir cualquier semana sin esperar a la fecha del calendario.</p><label>Año</label><input id="testWeekYear" class="input" type="number" min="2000" max="2200" value="${y}"><label style="display:block;margin-top:10px">Número de semana</label><input id="testWeekNumber" class="input" type="number" min="1" max="60" value="${Number(state.currentWeek)||1}"><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="activateTestWeek()">Crear / usar semana</button></div>`);
   };
 
-  window.activateTestWeek=function(){
+  window.activateTestWeek=async function(){
     const year=Number(document.querySelector('#testWeekYear')?.value);
     const week=Number(document.querySelector('#testWeekNumber')?.value);
     if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
     const d=datesForWeek(year,week);
+
+    // La semana se asegura primero en Azure. Si falla, no se cambia el estado
+    // local: así evitamos que frontend y base de datos queden desincronizados.
+    let azureWeek;
+    try{
+      if(!window.SiembraApi||typeof SiembraApi.ensureWeek!=='function')throw new Error('API no disponible');
+      azureWeek=await SiembraApi.ensureWeek({anio:year,numero:week,inicio:iso(d.start),fin:iso(d.end)});
+    }catch(error){
+      console.error('No fue posible crear/asegurar la semana en Azure.',error);
+      return toast('No se pudo crear la semana en Azure. La semana local no fue modificada.');
+    }
+
     state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
+    state.currentAzureWeekId=azureWeek.IdSemana;
     state.people=[]; state.evals=[]; state.pending=0; state.selectedPerson=null;
     // Para pruebas seguimos usando exclusivamente los sembradores JSON existentes.
     state.available=seed.people.concat(seed.available).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc}));
     if(!state.calendarWeeks)state.calendarWeeks={};
-    state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true};
-    save(); closeModal(); render(); toast(`Semana ${week} de ${year} creada para pruebas`);
+    state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
+    save(); closeModal(); render(); toast(`Semana ${week} de ${year} creada y sincronizada con Azure`);
   };
 
   function decorate(){
