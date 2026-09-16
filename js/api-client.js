@@ -53,9 +53,14 @@
     });
   }
 
-  // Carga los ítems reales desde Azure y los adapta al formato que el
-  // prototipo ya usa: [codigo, nombre, esCritico]. Si Azure no responde,
-  // se conservan los criterios locales de data.js para no romper la demo.
+  async function resolveTurn(participacionId, turno, { tipo, incumplimientos = [], usuarioCorporativoId }) {
+    return request(`/api/participaciones/${participacionId}/turnos/${turno}/resolver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, incumplimientos, usuarioCorporativoId })
+    });
+  }
+
   async function loadCriteriaIntoSeed() {
     if (typeof seed === 'undefined' || !Array.isArray(seed.criteria)) {
       throw new Error('seed.criteria no está disponible');
@@ -73,6 +78,9 @@
         throw new Error('La API no devolvió ítems activos');
       }
 
+      // Conservamos el código usado por la UI y además guardamos el IdItem real
+      // para que una evaluación pueda persistir sus incumplimientos en Azure.
+      window.SiembraAzureItemIds = Object.fromEntries(activeItems.map(item => [String(item.codigo), Number(item.id)]));
       seed.criteria = activeItems.map(item => [
         item.codigo,
         item.nombre,
@@ -83,6 +91,7 @@
       return seed.criteria;
     } catch (error) {
       seed.criteria = localFallback;
+      window.SiembraAzureItemIds = {};
       window.SiembraCriteriaSource = 'local-fallback';
       console.warn('No fue posible cargar los ítems desde Azure; se usan los criterios locales.', error);
       return seed.criteria;
@@ -96,6 +105,7 @@
     ensureWeek,
     getParticipants,
     addParticipant,
+    resolveTurn,
     loadCriteriaIntoSeed
   });
 })();
