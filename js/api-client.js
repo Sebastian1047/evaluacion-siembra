@@ -41,6 +41,10 @@
     });
   }
 
+  async function getParticipants(semanaId) {
+    return request(`/api/semanas/${semanaId}/participantes`);
+  }
+
   async function addParticipant(semanaId, { sembradorId, turnoInicio }) {
     return request(`/api/semanas/${semanaId}/participantes`, {
       method: 'POST',
@@ -90,6 +94,7 @@
     getItems,
     getWeek,
     ensureWeek,
+    getParticipants,
     addParticipant,
     loadCriteriaIntoSeed
   });
