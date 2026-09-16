@@ -41,6 +41,14 @@
     });
   }
 
+  async function addParticipant(semanaId, { sembradorId, turnoInicio }) {
+    return request(`/api/semanas/${semanaId}/participantes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sembradorId, turnoInicio })
+    });
+  }
+
   // Carga los ítems reales desde Azure y los adapta al formato que el
   // prototipo ya usa: [codigo, nombre, esCritico]. Si Azure no responde,
   // se conservan los criterios locales de data.js para no romper la demo.
@@ -82,6 +90,7 @@
     getItems,
     getWeek,
     ensureWeek,
+    addParticipant,
     loadCriteriaIntoSeed
   });
 })();
