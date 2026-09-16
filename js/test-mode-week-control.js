@@ -18,8 +18,6 @@
     if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
     const d=datesForWeek(year,week);
 
-    // La semana se asegura primero en Azure. Si falla, no se cambia el estado
-    // local: así evitamos que frontend y base de datos queden desincronizados.
     let azureWeek, azureParticipants;
     try{
       if(!window.SiembraApi||typeof SiembraApi.ensureWeek!=='function'||typeof SiembraApi.getParticipants!=='function')throw new Error('API no disponible');
@@ -30,16 +28,20 @@
       return toast('No se pudo abrir la semana desde Azure. La semana local no fue modificada.');
     }
 
-    // Catálogo JSON de pruebas: se usa solo para resolver nombre/ID visual del
-    // sembrador corporativo que Azure devuelve por su identificador estable.
-    const catalog=seed.people.concat(seed.available);
+    // En estas pruebas, empleadosReales es la copia del catálogo corporativo que
+    // alimenta la pantalla +Agregar. seed conserva únicamente los datos demo antiguos.
+    const realCatalog=(typeof empleadosReales!=='undefined'&&Array.isArray(empleadosReales))
+      ? empleadosReales.map(e=>({id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area}))
+      : [];
+    const demoCatalog=seed.people.concat(seed.available);
+    const catalog=[...realCatalog,...demoCatalog];
     const byDoc=new Map(catalog.map(p=>[String(p.doc),p]));
     const people=[];
     for(const ap of azureParticipants){
       if(ap.Estado!=='EN_LA_SEMANA')continue;
       const source=byDoc.get(String(ap.SembradorCorporativoId));
       if(!source){
-        console.warn('Participante Azure no encontrado en el catálogo JSON de pruebas:',ap.SembradorCorporativoId);
+        console.warn('Participante Azure no encontrado en el catálogo de pruebas:',ap.SembradorCorporativoId);
         continue;
       }
       people.push({
@@ -59,8 +61,8 @@
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
     state.people=people; state.evals=[]; state.pending=0; state.selectedPerson=null;
-    // Para pruebas seguimos usando exclusivamente los sembradores JSON existentes.
-    state.available=catalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc}));
+    // La lista disponible de pruebas debe coincidir con la misma fuente que usa +Agregar.
+    state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area}));
     if(!state.calendarWeeks)state.calendarWeeks={};
     state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
     save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y sincronizada con Azure`);
