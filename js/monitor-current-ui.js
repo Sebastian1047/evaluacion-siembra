@@ -30,9 +30,24 @@
       </article>`;
     };
 
+    // El seguimiento base todavía contiene el texto histórico "N% completado
+    // (no es desempeño)". Conservamos la barra de avance y el contador N/M,
+    // pero retiramos ese texto redundante de la interfaz vigente.
+    function removeLegacyFollowPercentage(){
+      if(state.role!=='monitor'||state.view!=='seguimiento')return;
+      document.querySelectorAll('.hero p').forEach(p=>{
+        const text=(p.textContent||'').replace(/\s+/g,' ').trim();
+        if(/^\d+% completado\s*\(no es desempeño\)$/i.test(text))p.remove();
+      });
+    }
+
+    const observer=new MutationObserver(()=>removeLegacyFollowPercentage());
+    observer.observe(document.querySelector('#app'),{childList:true,subtree:true});
+
     // Si la aplicación ya estaba renderizada cuando terminó de instalarse esta
     // interfaz, renderizamos una sola vez para sustituir el HTML antiguo.
     if(state.role==='monitor')render();
+    removeLegacyFollowPercentage();
   }
 
   install();
