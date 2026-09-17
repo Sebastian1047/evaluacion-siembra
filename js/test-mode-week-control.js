@@ -86,47 +86,26 @@
 
       // El historial pertenece a la semana aunque la persona esté retirada temporalmente.
       for(const omitted of omittedRows){
-        omissions.push({
-          week:week,
-          year:year,
-          person:personId,
-          turn:Number(omitted.NumeroTurno),
-          date:omitted.ResueltoEn,
-          synced:true,
-          azureResolutionId:omitted.IdResolucion
-        });
+        omissions.push({week:week,year:year,person:personId,turn:Number(omitted.NumeroTurno),date:omitted.ResueltoEn,synced:true,azureResolutionId:omitted.IdResolucion});
       }
-
       for(const evaluationId of evaluationIds){
         const erows=rows.filter(r=>Number(r.IdEvaluacion)===evaluationId);
         const first=erows[0];
         const failed=[...new Set(erows.map(r=>r.CodigoItem).filter(Boolean))];
-        evals.push({
-          id:'azure-eval-'+evaluationId,
-          person:personId,
-          personId:personId,
-          week:week,
-          year:year,
-          turn:Number(first.NumeroTurno),
-          sampleTurn:Number(first.NumeroTurno),
-          failures:failed,
-          fails:failed,
-          failed:failed,
-          score:Math.max(0,100-failed.length*8),
-          synced:true,
-          azureEvaluationId:evaluationId,
-          azureResolutionId:first.IdResolucion,
-          at:first.ResueltoEn,
-          date:first.ResueltoEn ? new Date(first.ResueltoEn).toLocaleString('es-CO') : ''
-        });
+        evals.push({id:'azure-eval-'+evaluationId,person:personId,personId:personId,week:week,year:year,turn:Number(first.NumeroTurno),sampleTurn:Number(first.NumeroTurno),failures:failed,fails:failed,failed:failed,score:Math.max(0,100-failed.length*8),synced:true,azureEvaluationId:evaluationId,azureResolutionId:first.IdResolucion,at:first.ResueltoEn,date:first.ResueltoEn?new Date(first.ResueltoEn).toLocaleString('es-CO'):''});
       }
     }
     const activeDocs=new Set(people.map(p=>String(p.doc)));
     const removedByDoc=new Map(removedPeople.map(p=>[String(p.doc),p]));
+    const allWeeklyParticipants=[...people,...removedPeople];
+    const maxResolvedTurn=allWeeklyParticipants.length?Math.max(...allWeeklyParticipants.map(p=>Number(p.sampleTurn)||0)):0;
+    const activeMinTurn=people.length?Math.min(...people.map(p=>Number(p.sampleTurn)||0)):null;
+    const operationalTurn=activeMinTurn!==null?activeMinTurn+1:Math.max(1,maxResolvedTurn+1);
 
     state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
+    state.weekOperationalSampleTurn=operationalTurn;
     state.people=people; state.evals=evals; state.sampleTurnOmissions=omissions; state.pending=0; state.selectedPerson=null;
     state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>{
       const removed=removedByDoc.get(String(p.doc));
@@ -149,12 +128,7 @@
       if(!Number.isInteger(year)||!Number.isInteger(week))throw new Error('Semana Azure inválida');
       window.__latestAzureWeekOpened=true;
       await window.activateTestWeek(year,week);
-    }catch(error){
-      window.__latestAzureWeekOpened=false;
-      console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);
-    }finally{
-      window.__latestAzureWeekOpening=false;
-    }
+    }catch(error){window.__latestAzureWeekOpened=false;console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);}finally{window.__latestAzureWeekOpening=false;}
   }
 
   function decorate(){
