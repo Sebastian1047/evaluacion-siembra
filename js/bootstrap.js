@@ -4,6 +4,10 @@
 
   const scripts = [
     'js/app.js',
+    // Instalar inmediatamente la interfaz vigente del Asegurador. Así el HTML
+    // histórico que todavía existe en app.js no permanece visible mientras
+    // terminan de cargar las integraciones posteriores.
+    'js/monitor-current-ui.js?v=20260916-2',
     'js/week-options.js',
     'js/empleados-reales.js',
     'js/historial-analista.js',
@@ -24,8 +28,7 @@
     'js/analyst-conformity-calculations.js?v=20260916-1',
     'js/test-mode-week-control.js?v=20260916-3',
     'js/azure-participant-sync.js?v=20260916-1',
-    'js/azure-evaluation-sync.js?v=20260916-1',
-    'js/monitor-current-ui.js?v=20260916-1'
+    'js/azure-evaluation-sync.js?v=20260916-1'
   ];
 
   for (const src of scripts) {
