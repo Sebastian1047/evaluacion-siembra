@@ -1,12 +1,27 @@
 // Control de turnos de muestra en la evaluación individual.
 // sampleTurn = posición operativa del último turno resuelto; para una incorporación
 // tardía parte en TurnoInicio-1, pero los turnos previos no pertenecen a la persona.
-// done/required conserva evaluaciones efectivamente realizadas/meta efectiva.
+// done = evaluaciones realmente realizadas. required = máximo de evaluaciones reales
+// que todavía puede completar dentro de las 30 rondas semanales.
+// Cada ronda ya pasada sin evaluación reduce required, sin eliminar el turno operativo.
 if(!state.sampleTurnOmissions)state.sampleTurnOmissions=[];
+function effectiveEvaluationTarget(p){
+  const done=Math.max(0,Number(p&&p.done)||0);
+  const elapsed=Math.max(0,Number(p&&p.sampleTurn)||0);
+  return Math.max(done,Math.min(30,30-elapsed+done));
+}
+window.effectiveEvaluationTarget=effectiveEvaluationTarget;
+function refreshEffectiveEvaluationTarget(p){
+  if(!p)return 30;
+  p.originalRequired=30;
+  p.required=effectiveEvaluationTarget(p);
+  return p.required;
+}
+window.refreshEffectiveEvaluationTarget=refreshEffectiveEvaluationTarget;
 function ensureSampleTurns(){
   (state.people||[]).forEach(p=>{
     if(typeof p.sampleTurn!=='number') p.sampleTurn=Number(p.done)||0;
-    if(typeof p.originalRequired!=='number') p.originalRequired=Number(p.required)||30;
+    refreshEffectiveEvaluationTarget(p);
   });
 }
 function minSampleTurn(){ensureSampleTurns();return state.people.length?Math.min(...state.people.map(p=>p.sampleTurn)):Math.max(0,(Number(state.weekOperationalSampleTurn)||1)-1)}
@@ -44,7 +59,7 @@ async function confirmOmitCurrentSample(){
       usuarioCorporativoId:'asegurador-prueba'
     });
     p.sampleTurn=info.next;
-    p.required=Math.max(p.done,p.required-1);
+    refreshEffectiveEvaluationTarget(p);
     state.weekOperationalSampleTurn=currentGroupSampleTurn();
     state.sampleTurnOmissions.push({
       week:state.currentWeek,
@@ -75,7 +90,7 @@ commitEval=function(ids){
   let info=canAdvancePerson(p);if(!info.ok)return showTurnBlock(p,info);
   let beforeDone=p.done;
   commitEvalBeforeSampleTurns(ids);
-  if(p.done>beforeDone){p.sampleTurn=info.next;state.weekOperationalSampleTurn=currentGroupSampleTurn();save()}
+  if(p.done>beforeDone){p.sampleTurn=info.next;refreshEffectiveEvaluationTarget(p);state.weekOperationalSampleTurn=currentGroupSampleTurn();save()}
 };
 function decorateSampleTurnUI(){
   ensureSampleTurns();
