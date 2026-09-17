@@ -28,17 +28,31 @@
         if(typeof SiembraApi.changeParticipantState!=='function')throw new Error('API de estado no disponible');
         await SiembraApi.changeParticipantState(Number(candidate.azureParticipationId),'EN_LA_SEMANA');
 
+        // localAddWorker crea un objeto nuevo con los valores iniciales (0/30, turno 0).
+        // Por eso guardamos primero el historial reconstruido de Azure y lo aplicamos
+        // al objeto que acaba de incorporarse.
+        const restored={
+          azureParticipationId:Number(candidate.azureParticipationId),
+          turnoInicio:candidate.turnoInicio,
+          done:Number(candidate.done)||0,
+          required:Number.isFinite(Number(candidate.required))?Number(candidate.required):30,
+          originalRequired:Number.isFinite(Number(candidate.originalRequired))?Number(candidate.originalRequired):30,
+          sampleTurn:Number(candidate.sampleTurn)||0
+        };
+
         localAddWorker(id);
-        const added=state.people.find(p=>p.id===candidate.id);
-        if(added){
-          added.azureParticipationId=Number(candidate.azureParticipationId);
-          added.turnoInicio=candidate.turnoInicio;
-          if(Number.isFinite(Number(candidate.done)))added.done=Number(candidate.done);
-          if(Number.isFinite(Number(candidate.required)))added.required=Number(candidate.required);
-          if(Number.isFinite(Number(candidate.originalRequired)))added.originalRequired=Number(candidate.originalRequired);
-          if(Number.isFinite(Number(candidate.sampleTurn)))added.sampleTurn=Number(candidate.sampleTurn);
-          save();
-        }
+        const added=state.people.find(p=>String(p.doc)===String(candidate.doc));
+        if(!added)throw new Error('No se encontró el sembrador reincorporado en el grupo local');
+
+        added.azureParticipationId=restored.azureParticipationId;
+        added.turnoInicio=restored.turnoInicio;
+        added.done=restored.done;
+        added.required=restored.required;
+        added.originalRequired=restored.originalRequired;
+        added.sampleTurn=restored.sampleTurn;
+        delete added.removedFromWeek;
+        save();
+        render();
         return toast(candidate.name+' volvió a la semana');
       }
 
