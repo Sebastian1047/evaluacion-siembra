@@ -79,12 +79,15 @@
           year:year,
           turn:Number(first.NumeroTurno),
           sampleTurn:Number(first.NumeroTurno),
+          failures:failed,
           fails:failed,
           failed:failed,
+          score:Math.max(0,100-failed.length*8),
           synced:true,
           azureEvaluationId:evaluationId,
           azureResolutionId:first.IdResolucion,
-          at:first.ResueltoEn
+          at:first.ResueltoEn,
+          date:first.ResueltoEn ? new Date(first.ResueltoEn).toLocaleString('es-CO') : ''
         });
       }
     }
