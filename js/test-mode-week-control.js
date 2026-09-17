@@ -44,6 +44,7 @@
 
     const people=[];
     const evals=[];
+    const omissions=[];
     for(const ap of azureParticipants){
       if(ap.Estado!=='EN_LA_SEMANA')continue;
       const source=byDoc.get(String(ap.SembradorCorporativoId));
@@ -53,19 +54,41 @@
       }
       const personId=source.id+'w'+year+'-'+week;
       const rows=rowsByParticipation.get(Number(ap.IdParticipacion))||[];
-      const resolvedTurns=[...new Set(rows.filter(r=>r.IdResolucion!=null).map(r=>Number(r.NumeroTurno)))];
+      const resolutionRows=[];
+      const seenResolutions=new Set();
+      for(const row of rows){
+        if(row.IdResolucion==null)continue;
+        const rid=Number(row.IdResolucion);
+        if(seenResolutions.has(rid))continue;
+        seenResolutions.add(rid);resolutionRows.push(row);
+      }
+      const resolvedTurns=[...new Set(resolutionRows.map(r=>Number(r.NumeroTurno)))];
+      const omittedRows=resolutionRows.filter(r=>r.Tipo==='NO_REALIZADA');
       const evaluationIds=[...new Set(rows.filter(r=>r.IdEvaluacion!=null).map(r=>Number(r.IdEvaluacion)))];
       const person={
         id:personId,
         name:source.name,
         doc:source.doc,
         done:evaluationIds.length,
-        required:30,
+        required:Math.max(evaluationIds.length,30-omittedRows.length),
+        originalRequired:30,
         sampleTurn:resolvedTurns.length ? Math.max(...resolvedTurns) : Math.max(0,Number(ap.TurnoInicio||1)-1),
         azureParticipationId:ap.IdParticipacion,
         turnoInicio:ap.TurnoInicio
       };
       people.push(person);
+
+      for(const omitted of omittedRows){
+        omissions.push({
+          week:week,
+          year:year,
+          person:personId,
+          turn:Number(omitted.NumeroTurno),
+          date:omitted.ResueltoEn,
+          synced:true,
+          azureResolutionId:omitted.IdResolucion
+        });
+      }
 
       for(const evaluationId of evaluationIds){
         const erows=rows.filter(r=>Number(r.IdEvaluacion)===evaluationId);
@@ -96,7 +119,7 @@
     state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
-    state.people=people; state.evals=evals; state.pending=0; state.selectedPerson=null;
+    state.people=people; state.evals=evals; state.sampleTurnOmissions=omissions; state.pending=0; state.selectedPerson=null;
     state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area}));
     if(!state.calendarWeeks)state.calendarWeeks={};
     state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
