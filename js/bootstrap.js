@@ -15,7 +15,7 @@
     'js/weekly-sample-closure.js?v=20260911-1',
     'js/group-week-close.js?v=20260915-1',
     'js/person-sample-turns.js?v=20260917-5',
-    'js/late-entry-turn-edit.js?v=20260917-2',
+    'js/late-entry-turn-edit.js?v=20260917-3',
     'js/noncompliance-x.js?v=20260915-1',
     'js/sync-attention.js?v=20260911-2',
     'js/remove-group-item-button.js?v=20260911-1',
