@@ -1,7 +1,13 @@
 // Interfaz vigente del Asegurador.
-// Este archivo concentra en un solo lugar las decisiones visuales actuales del rol
-// y sustituye los parches históricos que antes ocultaban/rearmaban la misma UI.
+// Este archivo concentra en un solo lugar las decisiones visuales actuales del rol.
 (function(){
+  function revealApprovedUI(){
+    const bootStyle=document.querySelector('#approved-ui-boot');
+    if(bootStyle)bootStyle.remove();
+    const root=document.querySelector('#app');
+    if(root)root.style.visibility='visible';
+  }
+
   function install(){
     if(typeof state==='undefined'||typeof layout!=='function'||typeof personCard!=='function'){
       return setTimeout(install,25);
@@ -30,9 +36,6 @@
       </article>`;
     };
 
-    // El seguimiento base todavía contiene el texto histórico "N% completado
-    // (no es desempeño)". Conservamos la barra de avance y el contador N/M,
-    // pero retiramos ese texto redundante de la interfaz vigente.
     function removeLegacyFollowPercentage(){
       if(state.role!=='monitor'||state.view!=='seguimiento')return;
       document.querySelectorAll('.hero p').forEach(p=>{
@@ -44,10 +47,9 @@
     const observer=new MutationObserver(()=>removeLegacyFollowPercentage());
     observer.observe(document.querySelector('#app'),{childList:true,subtree:true});
 
-    // Si la aplicación ya estaba renderizada cuando terminó de instalarse esta
-    // interfaz, renderizamos una sola vez para sustituir el HTML antiguo.
     if(state.role==='monitor')render();
     removeLegacyFollowPercentage();
+    revealApprovedUI();
   }
 
   install();
