@@ -23,34 +23,57 @@
       }
 
       // Un sembrador quitado temporalmente ya tiene participación semanal.
-      // Se reactiva esa misma participación para conservar turnos, evaluaciones y omisiones.
+      // Se reactiva esa misma participación y se reconstruye su estado operativo
+      // desde Azure, que es la fuente de verdad de sus turnos y evaluaciones.
       if(candidate.removedFromWeek && Number(candidate.azureParticipationId)){
         if(typeof SiembraApi.changeParticipantState!=='function')throw new Error('API de estado no disponible');
-        await SiembraApi.changeParticipantState(Number(candidate.azureParticipationId),'EN_LA_SEMANA');
+        if(typeof SiembraApi.getOperationalState!=='function')throw new Error('API de estado operativo no disponible');
 
-        const restored={
-          azureParticipationId:Number(candidate.azureParticipationId),
-          turnoInicio:candidate.turnoInicio,
-          done:Number(candidate.done)||0,
-          required:Number.isFinite(Number(candidate.required))?Number(candidate.required):30,
-          originalRequired:Number.isFinite(Number(candidate.originalRequired))?Number(candidate.originalRequired):30,
-          sampleTurn:Number(candidate.sampleTurn)||0
-        };
+        const participationId=Number(candidate.azureParticipationId);
+        await SiembraApi.changeParticipantState(participationId,'EN_LA_SEMANA');
+
+        const operationalRows=await SiembraApi.getOperationalState(semanaId);
+        const rows=(Array.isArray(operationalRows)?operationalRows:[])
+          .filter(row=>Number(row.IdParticipacion)===participationId);
+        if(!rows.length)throw new Error('Azure no devolvió el estado de la participación restaurada');
+
+        const first=rows[0];
+        const resolutions=new Map();
+        for(const row of rows){
+          if(row.IdResolucion!=null && !resolutions.has(String(row.IdResolucion))){
+            resolutions.set(String(row.IdResolucion),{
+              turno:Number(row.NumeroTurno)||0,
+              tipo:String(row.Tipo||'')
+            });
+          }
+        }
+        const resolved=[...resolutions.values()];
+        const done=resolved.filter(r=>r.tipo==='EVALUACION').length;
+        const omitted=resolved.filter(r=>r.tipo==='NO_REALIZADA').length;
+        const sampleTurn=resolved.length
+          ? Math.max(...resolved.map(r=>r.turno))
+          : Math.max(0,(Number(first.TurnoInicio)||1)-1);
 
         localAddWorker(id);
         const added=state.people.find(p=>String(p.doc)===String(candidate.doc));
         if(!added)throw new Error('No se encontró el sembrador reincorporado en el grupo local');
 
-        added.azureParticipationId=restored.azureParticipationId;
-        added.turnoInicio=restored.turnoInicio;
-        added.done=restored.done;
-        added.required=restored.required;
-        added.originalRequired=restored.originalRequired;
-        added.sampleTurn=restored.sampleTurn;
+        added.azureParticipationId=participationId;
+        added.turnoInicio=Number(first.TurnoInicio)||1;
+        added.done=done;
+        added.originalRequired=30;
+        added.required=Math.max(0,30-omitted);
+        added.sampleTurn=sampleTurn;
         delete added.removedFromWeek;
+
+        // Nunca retroceder el turno operativo de la semana al restaurar a alguien.
+        state.weekOperationalSampleTurn=Math.max(
+          Number(state.weekOperationalSampleTurn)||1,
+          sampleTurn+1
+        );
         save();
         render();
-        return toast(candidate.name+' volvió a la semana');
+        return toast(candidate.name+' volvió a la semana con su estado restaurado');
       }
 
       // El turno operativo pertenece a la semana, no al número de evaluaciones
