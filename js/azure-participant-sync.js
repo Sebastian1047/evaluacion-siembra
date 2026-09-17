@@ -23,10 +23,11 @@
         added.azureParticipationId=participationId;
         added.turnoInicio=Number(first.TurnoInicio)||1;
         added.ultimoTurnoIncorporacion=turnoOperativo;
-        added.done=done;added.originalRequired=30;added.required=Math.max(0,30-omitted);
+        added.done=done;added.originalRequired=30;
         // Al reincorporarse en N queda habilitado para resolver N. No inventamos
         // resoluciones N-1, N-2...: sampleTurn=N-1 es solo el cursor operativo local.
         added.sampleTurn=Math.max(0,turnoOperativo-1);
+        added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(done,30-added.sampleTurn+done);
         delete added.removedFromWeek;
         state.weekOperationalSampleTurn=Math.max(Number(state.weekOperationalSampleTurn)||1,turnoOperativo);
         save();render();return toast(candidate.name+' se reincorporó en el turno '+turnoOperativo);
@@ -34,7 +35,7 @@
 
       const participant=await SiembraApi.addParticipant(semanaId,{sembradorId:String(candidate.doc),turnoInicio:turnoOperativo});
       localAddWorker(id);const added=state.people.find(p=>p.id===candidate.id);
-      if(added){added.azureParticipationId=participant.IdParticipacion;added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;added.ultimoTurnoIncorporacion=added.turnoInicio;added.sampleTurn=Math.max(0,added.turnoInicio-1);state.weekOperationalSampleTurn=turnoOperativo;save();render();}
+      if(added){added.azureParticipationId=participant.IdParticipacion;added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;added.ultimoTurnoIncorporacion=added.turnoInicio;added.sampleTurn=Math.max(0,added.turnoInicio-1);added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(Number(added.done)||0,30-added.sampleTurn+(Number(added.done)||0));state.weekOperationalSampleTurn=turnoOperativo;save();render();}
     }catch(error){console.error('No fue posible agregar/reincorporar el sembrador en Azure.',error);toast('No se pudo guardar el sembrador en Azure. El grupo no fue modificado.');}
   };
 })();
