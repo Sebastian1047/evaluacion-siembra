@@ -29,6 +29,10 @@
     return request('/api/items');
   }
 
+  async function getLatestWeek() {
+    return request('/api/semanas/ultima');
+  }
+
   async function getWeek(year, number) {
     return request(`/api/semanas/${year}/${number}`);
   }
@@ -113,6 +117,7 @@
   window.SiembraApi = Object.freeze({
     baseUrl: API_BASE_URL,
     getItems,
+    getLatestWeek,
     getWeek,
     ensureWeek,
     getParticipants,
