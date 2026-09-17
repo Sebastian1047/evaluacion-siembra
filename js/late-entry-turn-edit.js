@@ -16,7 +16,7 @@
       if(existing.length){if(typeof ensureSampleTurns==='function')ensureSampleTurns();inherited=Math.min(...existing.map(p=>Number(p.sampleTurn)||0))}
       let candidate=(state.available||[]).find(x=>x.id===id);addWorkerBeforeLateEntry(id);
       let added=(state.people||[]).find(x=>x.id===id)||(candidate&&(state.people||[]).find(x=>x.name===candidate.name&&x.doc===candidate.doc));
-      if(added){added.sampleTurn=inherited;added.entryTurn=inherited+1;added.originalRequired=30;added.required=30;added.done=Number(added.done)||0;save();render();if(inherited>0)toast(added.name+' se incorpora al turno '+(inherited+1))}
+      if(added){added.sampleTurn=inherited;added.entryTurn=inherited+1;added.originalRequired=30;added.done=Number(added.done)||0;added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(added.done,30-inherited+added.done);save();render();if(inherited>0)toast(added.name+' se incorpora al turno '+(inherited+1))}
     };
   }
 
@@ -75,9 +75,9 @@
     if(desired==='evaluation'){
       if(omission)state.sampleTurnOmissions=(state.sampleTurnOmissions||[]).filter(o=>o!==omission);
       if(!evaluation){evaluation={id:'e'+Date.now(),person:p.id,turn:Number(turn),failures:[],score:100,synced:false,date:new Date().toLocaleString('es-CO'),corrected:true};state.evals.push(evaluation)}
-      evaluation.failures=failures;evaluation.score=Math.max(0,100-failures.length*8);evaluation.corrected=true;evaluation.correctedAt=new Date().toISOString();if(!wasEval){p.done=(Number(p.done)||0)+1;p.required=(Number(p.required)||0)+1;state.pending=(Number(state.pending)||0)+1}
+      evaluation.failures=failures;evaluation.score=Math.max(0,100-failures.length*8);evaluation.corrected=true;evaluation.correctedAt=new Date().toISOString();if(!wasEval){p.done=(Number(p.done)||0)+1;if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);else p.required=Math.min(30,(Number(p.required)||0)+1);state.pending=(Number(state.pending)||0)+1}
     }else{
-      if(evaluation)state.evals=(state.evals||[]).filter(e=>e!==evaluation);if(!omission)state.sampleTurnOmissions.push({week:state.currentWeek,person:p.id,turn:Number(turn),date:new Date().toISOString(),corrected:true});if(wasEval){p.done=Math.max(0,(Number(p.done)||0)-1);p.required=Math.max(p.done,(Number(p.required)||30)-1)}
+      if(evaluation)state.evals=(state.evals||[]).filter(e=>e!==evaluation);if(!omission)state.sampleTurnOmissions.push({week:state.currentWeek,person:p.id,turn:Number(turn),date:new Date().toISOString(),corrected:true});if(wasEval){p.done=Math.max(0,(Number(p.done)||0)-1);if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);else p.required=Math.max(p.done,(Number(p.required)||30)-1)}
     }
     save();let result=desired==='evaluation'?(failures.length?`Evaluación realizada · ${failures.length} ítem${failures.length===1?'':'s'} con incumplimiento`:'Evaluación realizada · todos los ítems cumplen'):'No realizar muestra';modal(`<h3>Turno ${turn} corregido</h3><p><b>${result}</b></p><p class="muted">La persona continúa en su turno operativo actual.</p><button class="btn primary block" onclick="closeModal();render()">Aceptar</button>`);
   };
