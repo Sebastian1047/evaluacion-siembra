@@ -91,10 +91,27 @@ function decorateSampleTurnUI(){
     }
   }
   if(state.view==='seguimiento'){
-    let p=current();if(!p)return;let hero=document.querySelector('.hero');if(!hero||hero.querySelector('#sample-turn-person'))return;
-    let box=document.createElement('div');box.id='sample-turn-person';box.className='card';box.style.marginTop='12px';
-    box.innerHTML=`<div class="row between"><span>Turno de muestra resuelto</span><b>${p.sampleTurn}</b></div><div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra y volver al grupo</button>`;
-    hero.appendChild(box);
+    let p=current();if(!p)return;let hero=document.querySelector('.hero');if(!hero)return;
+    if(!hero.querySelector('#sample-turn-person')){
+      let box=document.createElement('div');box.id='sample-turn-person';box.className='card';box.style.marginTop='12px';
+      box.innerHTML=`<div class="row between"><span>Turno de muestra resuelto</span><b>${p.sampleTurn}</b></div><div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra y volver al grupo</button>`;
+      hero.appendChild(box);
+    }
+
+    // Trazabilidad visible de turnos resueltos sin evaluación. Se muestran aparte
+    // para no confundir una omisión con una evaluación efectiva.
+    if(!document.querySelector('#sample-turn-omissions')){
+      const omissions=(state.sampleTurnOmissions||[])
+        .filter(o=>o.person===p.id&&Number(o.week)===Number(state.currentWeek)&&(!o.year||Number(o.year)===Number(state.currentYear)))
+        .slice().sort((a,b)=>Number(b.turn)-Number(a.turn));
+      if(omissions.length){
+        const section=document.createElement('section');section.id='sample-turn-omissions';section.style.marginTop='18px';
+        section.innerHTML=`<h3>Muestras no realizadas</h3>${omissions.map(o=>`<div class="card" style="margin-top:10px"><div class="row between"><div><b>Turno ${o.turn}</b><p style="margin:6px 0 0">Muestra no realizada · Sin evaluación</p></div>${o.synced?'<span class="badge ok">Sincronizada</span>':''}</div></div>`).join('')}`;
+        const evalHeading=[...document.querySelectorAll('h3')].find(h=>(h.textContent||'').trim()==='Evaluaciones registradas');
+        if(evalHeading&&evalHeading.parentNode)evalHeading.parentNode.insertBefore(section,evalHeading);
+        else hero.insertAdjacentElement('afterend',section);
+      }
+    }
   }
 }
 const sampleTurnObserver=new MutationObserver(()=>{clearTimeout(window.__sampleTurnTimer);window.__sampleTurnTimer=setTimeout(decorateSampleTurnUI,0)});sampleTurnObserver.observe(document.querySelector('#app'),{childList:true,subtree:true});ensureSampleTurns();save();setTimeout(decorateSampleTurnUI,0);
