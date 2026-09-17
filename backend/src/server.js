@@ -41,7 +41,17 @@ app.patch('/api/participaciones/:id/estado',async(req,res,next)=>{try{
     const current=await new sql.Request(tx).input('id',sql.Int,req.params.id).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdParticipacion=@id');
     const participant=current.recordset[0];if(!participant){await tx.rollback();return res.status(404).json({error:'Participación no encontrada'});}
     if(estado==='QUITADO_TEMPORALMENTE'){
-      await new sql.Request(tx).input('id',sql.Int,req.params.id).input('fin',sql.SmallInt,Math.max(1,turnoOperativo-1)).query(`UPDATE dbo.TramoParticipacion SET TurnoFin=@fin WHERE IdTramo=(SELECT TOP(1) IdTramo FROM dbo.TramoParticipacion WHERE IdParticipacion=@id AND TurnoFin IS NULL ORDER BY IdTramo DESC)`);
+      const open=await new sql.Request(tx).input('id',sql.Int,req.params.id).query('SELECT TOP(1) IdTramo,TurnoInicio FROM dbo.TramoParticipacion WHERE IdParticipacion=@id AND TurnoFin IS NULL ORDER BY IdTramo DESC');
+      const tramo=open.recordset[0];
+      if(tramo){
+        const ultimoTurnoParticipado=turnoOperativo-1;
+        if(ultimoTurnoParticipado<Number(tramo.TurnoInicio)){
+          // Salió antes de resolver el turno en que se reincorporó: el tramo vacío no representa participación real.
+          await new sql.Request(tx).input('tramo',sql.BigInt,tramo.IdTramo).query('DELETE dbo.TramoParticipacion WHERE IdTramo=@tramo');
+        }else{
+          await new sql.Request(tx).input('tramo',sql.BigInt,tramo.IdTramo).input('fin',sql.SmallInt,ultimoTurnoParticipado).query('UPDATE dbo.TramoParticipacion SET TurnoFin=@fin WHERE IdTramo=@tramo');
+        }
+      }
     }else if(participant.Estado==='QUITADO_TEMPORALMENTE'){
       await new sql.Request(tx).input('id',sql.Int,req.params.id).input('inicio',sql.SmallInt,turnoOperativo).query('INSERT dbo.TramoParticipacion(IdParticipacion,TurnoInicio) VALUES(@id,@inicio)');
     }
