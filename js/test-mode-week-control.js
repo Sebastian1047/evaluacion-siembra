@@ -43,10 +43,10 @@
     }
 
     const people=[];
+    const removedPeople=[];
     const evals=[];
     const omissions=[];
     for(const ap of azureParticipants){
-      if(ap.Estado!=='EN_LA_SEMANA')continue;
       const source=byDoc.get(String(ap.SembradorCorporativoId));
       if(!source){
         console.warn('Participante Azure no encontrado en el catálogo de pruebas:',ap.SembradorCorporativoId);
@@ -69,6 +69,7 @@
         id:personId,
         name:source.name,
         doc:source.doc,
+        area:source.area,
         done:evaluationIds.length,
         required:Math.max(evaluationIds.length,30-omittedRows.length),
         originalRequired:30,
@@ -76,8 +77,14 @@
         azureParticipationId:ap.IdParticipacion,
         turnoInicio:ap.TurnoInicio
       };
-      people.push(person);
 
+      if(ap.Estado==='EN_LA_SEMANA'){
+        people.push(person);
+      }else if(ap.Estado==='QUITADO_TEMPORALMENTE'){
+        removedPeople.push({...person,removedFromWeek:true});
+      }
+
+      // El historial pertenece a la semana aunque la persona esté retirada temporalmente.
       for(const omitted of omittedRows){
         omissions.push({
           week:week,
@@ -115,12 +122,16 @@
       }
     }
     const activeDocs=new Set(people.map(p=>String(p.doc)));
+    const removedByDoc=new Map(removedPeople.map(p=>[String(p.doc),p]));
 
     state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
     state.people=people; state.evals=evals; state.sampleTurnOmissions=omissions; state.pending=0; state.selectedPerson=null;
-    state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area}));
+    state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>{
+      const removed=removedByDoc.get(String(p.doc));
+      return removed || {id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area};
+    });
     if(!state.calendarWeeks)state.calendarWeeks={};
     state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
     save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y reconstruida desde Azure`);
