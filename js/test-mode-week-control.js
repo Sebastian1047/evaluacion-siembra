@@ -68,17 +68,23 @@
       const ultimoTurnoIncorporacion=rows.length?Math.max(...rows.map(r=>Number(r.UltimoTurnoIncorporacion)||0)):0;
       const ultimoTurnoResuelto=resolvedTurns.length?Math.max(...resolvedTurns):0;
       const cursorReincorporacion=Math.max(0,ultimoTurnoIncorporacion-1);
+      const sampleTurn=Math.max(ultimoTurnoResuelto,cursorReincorporacion,Math.max(0,Number(ap.TurnoInicio||1)-1));
+      const done=evaluationIds.length;
       const person={
         id:personId,
         name:source.name,
         doc:source.doc,
         area:source.area,
-        done:evaluationIds.length,
-        required:Math.max(evaluationIds.length,30-omittedRows.length),
+        done,
+        // La meta efectiva no es el total de turnos. Los turnos siguen siendo hasta 30.
+        // Aquí solo contamos cuántas evaluaciones reales todavía puede alcanzar:
+        // 30 - rondas ya pasadas sin evaluación. Esto incluye NO_REALIZADA,
+        // ingreso tardío y rondas transcurridas durante un retiro.
+        required:Math.max(done,Math.min(30,30-sampleTurn+done)),
         originalRequired:30,
         // El cursor operativo puede estar por delante del último turno realmente resuelto
         // cuando hubo retiro y reincorporación. No inventa una resolución intermedia.
-        sampleTurn:Math.max(ultimoTurnoResuelto,cursorReincorporacion,Math.max(0,Number(ap.TurnoInicio||1)-1)),
+        sampleTurn,
         azureParticipationId:ap.IdParticipacion,
         turnoInicio:ap.TurnoInicio,
         ultimoTurnoIncorporacion:ultimoTurnoIncorporacion||Number(ap.TurnoInicio)||1
