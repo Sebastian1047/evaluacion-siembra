@@ -57,6 +57,14 @@
     });
   }
 
+  async function changeParticipantState(participacionId, estado) {
+    return request(`/api/participaciones/${participacionId}/estado`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado })
+    });
+  }
+
   async function resolveTurn(participacionId, turno, { tipo, incumplimientos = [], usuarioCorporativoId }) {
     return request(`/api/participaciones/${participacionId}/turnos/${turno}/resolver`, {
       method: 'POST',
@@ -110,6 +118,7 @@
     getParticipants,
     getOperationalState,
     addParticipant,
+    changeParticipantState,
     resolveTurn,
     loadCriteriaIntoSeed
   });
