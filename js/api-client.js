@@ -45,6 +45,10 @@
     return request(`/api/semanas/${semanaId}/participantes`);
   }
 
+  async function getOperationalState(semanaId) {
+    return request(`/api/semanas/${semanaId}/estado-operativo`);
+  }
+
   async function addParticipant(semanaId, { sembradorId, turnoInicio }) {
     return request(`/api/semanas/${semanaId}/participantes`, {
       method: 'POST',
@@ -104,6 +108,7 @@
     getWeek,
     ensureWeek,
     getParticipants,
+    getOperationalState,
     addParticipant,
     resolveTurn,
     loadCriteriaIntoSeed
