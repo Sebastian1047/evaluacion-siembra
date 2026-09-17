@@ -12,9 +12,9 @@
     modal(`<h3>Crear semana de prueba</h3><p class="muted">Modo de pruebas: el Asegurador puede abrir cualquier semana sin esperar a la fecha del calendario.</p><label>Año</label><input id="testWeekYear" class="input" type="number" min="2000" max="2200" value="${y}"><label style="display:block;margin-top:10px">Número de semana</label><input id="testWeekNumber" class="input" type="number" min="1" max="60" value="${Number(state.currentWeek)||1}"><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="activateTestWeek()">Crear / usar semana</button></div>`);
   };
 
-  window.activateTestWeek=async function(){
-    const year=Number(document.querySelector('#testWeekYear')?.value);
-    const week=Number(document.querySelector('#testWeekNumber')?.value);
+  window.activateTestWeek=async function(yearOverride,weekOverride){
+    const year=Number(yearOverride ?? document.querySelector('#testWeekYear')?.value);
+    const week=Number(weekOverride ?? document.querySelector('#testWeekNumber')?.value);
     if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
     const d=datesForWeek(year,week);
 
@@ -126,8 +126,29 @@
     save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y reconstruida desde Azure`);
   };
 
+  async function openLatestAzureWeek(){
+    if(window.__latestAzureWeekOpening||window.__latestAzureWeekOpened)return;
+    if(state.role!=='monitor'||state.view!=='grupo')return;
+    if(!window.SiembraApi||typeof SiembraApi.getLatestWeek!=='function')return;
+    window.__latestAzureWeekOpening=true;
+    try{
+      const latest=await SiembraApi.getLatestWeek();
+      const year=Number(latest.AnioEvaluacion);
+      const week=Number(latest.NumeroSemana);
+      if(!Number.isInteger(year)||!Number.isInteger(week))throw new Error('Semana Azure inválida');
+      window.__latestAzureWeekOpened=true;
+      await window.activateTestWeek(year,week);
+    }catch(error){
+      window.__latestAzureWeekOpened=false;
+      console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);
+    }finally{
+      window.__latestAzureWeekOpening=false;
+    }
+  }
+
   function decorate(){
     if(state.role!=='monitor'||state.view!=='grupo')return;
+    openLatestAzureWeek();
     const hero=document.querySelector('.hero');if(!hero)return;
     const h2=hero.querySelector('h2');
     if(h2){const badge=h2.querySelector('.sample-turn-badge');h2.childNodes.forEach(n=>{if(n.nodeType===3)n.textContent=''});h2.insertAdjacentText('afterbegin',`Semana ${state.currentWeek} · ${state.currentYear||''} `);if(badge)h2.appendChild(badge)}
