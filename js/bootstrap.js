@@ -26,7 +26,8 @@
     'js/analyst-conformity-calculations.js?v=20260916-1',
     'js/test-mode-week-control.js?v=20260916-3',
     'js/azure-participant-sync.js?v=20260916-1',
-    'js/azure-evaluation-sync.js?v=20260916-1'
+    'js/azure-evaluation-sync.js?v=20260916-1',
+    'js/ui-stability.js?v=20260916-1'
   ];
 
   for (const src of scripts) {
