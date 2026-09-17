@@ -18,25 +18,32 @@
     if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
     const d=datesForWeek(year,week);
 
-    let azureWeek, azureParticipants;
+    let azureWeek, azureParticipants, operationalRows;
     try{
-      if(!window.SiembraApi||typeof SiembraApi.ensureWeek!=='function'||typeof SiembraApi.getParticipants!=='function')throw new Error('API no disponible');
+      if(!window.SiembraApi||typeof SiembraApi.ensureWeek!=='function'||typeof SiembraApi.getParticipants!=='function'||typeof SiembraApi.getOperationalState!=='function')throw new Error('API no disponible');
       azureWeek=await SiembraApi.ensureWeek({anio:year,numero:week,inicio:iso(d.start),fin:iso(d.end)});
       azureParticipants=await SiembraApi.getParticipants(azureWeek.IdSemana);
+      operationalRows=await SiembraApi.getOperationalState(azureWeek.IdSemana);
     }catch(error){
       console.error('No fue posible abrir/sincronizar la semana con Azure.',error);
       return toast('No se pudo abrir la semana desde Azure. La semana local no fue modificada.');
     }
 
-    // En estas pruebas, empleadosReales es la copia del catálogo corporativo que
-    // alimenta la pantalla +Agregar. seed conserva únicamente los datos demo antiguos.
     const realCatalog=(typeof empleadosReales!=='undefined'&&Array.isArray(empleadosReales))
       ? empleadosReales.map(e=>({id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area}))
       : [];
     const demoCatalog=seed.people.concat(seed.available);
     const catalog=[...realCatalog,...demoCatalog];
     const byDoc=new Map(catalog.map(p=>[String(p.doc),p]));
+    const rowsByParticipation=new Map();
+    for(const row of (operationalRows||[])){
+      const key=Number(row.IdParticipacion);
+      if(!rowsByParticipation.has(key))rowsByParticipation.set(key,[]);
+      rowsByParticipation.get(key).push(row);
+    }
+
     const people=[];
+    const evals=[];
     for(const ap of azureParticipants){
       if(ap.Estado!=='EN_LA_SEMANA')continue;
       const source=byDoc.get(String(ap.SembradorCorporativoId));
@@ -44,28 +51,53 @@
         console.warn('Participante Azure no encontrado en el catálogo de pruebas:',ap.SembradorCorporativoId);
         continue;
       }
-      people.push({
-        id:source.id+'w'+year+'-'+week,
+      const personId=source.id+'w'+year+'-'+week;
+      const rows=rowsByParticipation.get(Number(ap.IdParticipacion))||[];
+      const resolvedTurns=[...new Set(rows.filter(r=>r.IdResolucion!=null).map(r=>Number(r.NumeroTurno)))];
+      const evaluationIds=[...new Set(rows.filter(r=>r.IdEvaluacion!=null).map(r=>Number(r.IdEvaluacion)))];
+      const person={
+        id:personId,
         name:source.name,
         doc:source.doc,
-        done:0,
+        done:evaluationIds.length,
         required:30,
-        sampleTurn:Math.max(0,Number(ap.TurnoInicio||1)-1),
+        sampleTurn:resolvedTurns.length ? Math.max(...resolvedTurns) : Math.max(0,Number(ap.TurnoInicio||1)-1),
         azureParticipationId:ap.IdParticipacion,
         turnoInicio:ap.TurnoInicio
-      });
+      };
+      people.push(person);
+
+      for(const evaluationId of evaluationIds){
+        const erows=rows.filter(r=>Number(r.IdEvaluacion)===evaluationId);
+        const first=erows[0];
+        const failed=[...new Set(erows.map(r=>r.CodigoItem).filter(Boolean))];
+        evals.push({
+          id:'azure-eval-'+evaluationId,
+          person:personId,
+          personId:personId,
+          week:week,
+          year:year,
+          turn:Number(first.NumeroTurno),
+          sampleTurn:Number(first.NumeroTurno),
+          fails:failed,
+          failed:failed,
+          synced:true,
+          azureEvaluationId:evaluationId,
+          azureResolutionId:first.IdResolucion,
+          at:first.ResueltoEn
+        });
+      }
     }
     const activeDocs=new Set(people.map(p=>String(p.doc)));
 
     state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
-    state.people=people; state.evals=[]; state.pending=0; state.selectedPerson=null;
-    // La lista disponible de pruebas debe coincidir con la misma fuente que usa +Agregar.
+    state.people=people; state.evals=evals; state.pending=0; state.selectedPerson=null;
     state.available=realCatalog.filter(p=>!activeDocs.has(String(p.doc))).map(p=>({id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area}));
     if(!state.calendarWeeks)state.calendarWeeks={};
     state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
-    save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y sincronizada con Azure`);
+    save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y reconstruida desde Azure`);
   };
 
   function decorate(){
