@@ -19,15 +19,24 @@
       return originalNav(active);
     };
 
+    function lastActuallyResolvedTurn(p){
+      const turns=[];
+      (state.evals||[]).forEach(e=>{if(e.person===p.id&&Number(e.turn)>0)turns.push(Number(e.turn));});
+      (state.sampleTurnOmissions||[]).forEach(o=>{
+        if(o.person===p.id&&Number(o.week)===Number(state.currentWeek)&&(!o.year||Number(o.year)===Number(state.currentYear))&&Number(o.turn)>0)turns.push(Number(o.turn));
+      });
+      return turns.length?Math.max(...turns):0;
+    }
+
     personCard=function(p){
       const pc=Math.min(100,Math.round((Number(p.done)||0)/Math.max(1,Number(p.required)||30)*100));
-      const internalTurn=typeof p.sampleTurn==='number'?p.sampleTurn:(Number(p.done)||0);
       const startTurn=Math.max(1,Number(p.turnoInicio)||1);
-      // sampleTurn conserva la posición operativa interna. Los turnos anteriores a
-      // TurnoInicio no fueron resueltos por esta persona y no deben mostrarse como tales.
-      const resolvedSinceEntry=Math.max(0,internalTurn-startTurn+1);
-      const turnText=resolvedSinceEntry>0
-        ? `Turno resuelto: <b>${internalTurn}</b>`
+      // sampleTurn es un cursor operativo y, tras una reincorporación, puede quedar en N-1
+      // aunque N-1 haya ocurrido mientras la persona estaba fuera. La tarjeta muestra
+      // únicamente el último turno que tenga una resolución real.
+      const actualResolved=lastActuallyResolvedTurn(p);
+      const turnText=actualResolved>0
+        ? `Turno resuelto: <b>${actualResolved}</b>`
         : (startTurn>1?`Inicia en turno: <b>${startTurn}</b>`:'Turnos resueltos: <b>0</b>');
       return `<article class="card person" data-name="${p.name.toLowerCase()}" onclick="openPerson('${p.id}')" style="padding:9px 12px;margin-bottom:7px">
         <div class="row between" style="gap:8px;align-items:center;min-height:28px">
