@@ -28,9 +28,6 @@
         if(typeof SiembraApi.changeParticipantState!=='function')throw new Error('API de estado no disponible');
         await SiembraApi.changeParticipantState(Number(candidate.azureParticipationId),'EN_LA_SEMANA');
 
-        // localAddWorker crea un objeto nuevo con los valores iniciales (0/30, turno 0).
-        // Por eso guardamos primero el historial reconstruido de Azure y lo aplicamos
-        // al objeto que acaba de incorporarse.
         const restored={
           azureParticipationId:Number(candidate.azureParticipationId),
           turnoInicio:candidate.turnoInicio,
@@ -56,21 +53,30 @@
         return toast(candidate.name+' volvió a la semana');
       }
 
-      const turnoInicio=typeof window.currentGroupSampleTurn==='function'
-        ? currentGroupSampleTurn()
-        : 1;
+      // El turno operativo pertenece a la semana, no al número de evaluaciones
+      // que tenga una persona recién incorporada. Si el grupo está vacío usamos
+      // weekOperationalSampleTurn; si ya hay participantes, currentGroupSampleTurn.
+      const turnoInicio=state.people.length
+        ? (typeof window.currentGroupSampleTurn==='function'?currentGroupSampleTurn():Math.max(1,Number(state.weekOperationalSampleTurn)||1))
+        : Math.max(1,Number(state.weekOperationalSampleTurn)||1);
+
       const participant=await SiembraApi.addParticipant(semanaId,{
         sembradorId:String(candidate.doc),
         turnoInicio
       });
 
-      // Solo después de confirmar Azure se aplica la misma alta local que ya funcionaba.
+      // Solo después de confirmar Azure se aplica el alta local.
       localAddWorker(id);
       const added=state.people.find(p=>p.id===candidate.id);
       if(added){
         added.azureParticipationId=participant.IdParticipacion;
-        added.turnoInicio=participant.TurnoInicio;
+        added.turnoInicio=Number(participant.TurnoInicio)||turnoInicio;
+        // sampleTurn representa el último turno resuelto. Una incorporación tardía
+        // que comienza en el turno N aún no ha resuelto N, por lo que parte en N-1.
+        added.sampleTurn=Math.max(0,added.turnoInicio-1);
+        state.weekOperationalSampleTurn=turnoInicio;
         save();
+        render();
       }
     }catch(error){
       console.error('No fue posible agregar/restaurar el sembrador en Azure.',error);
