@@ -16,7 +16,7 @@
       if(existing.length){if(typeof ensureSampleTurns==='function')ensureSampleTurns();inherited=Math.min(...existing.map(p=>Number(p.sampleTurn)||0))}
       let candidate=(state.available||[]).find(x=>x.id===id);addWorkerBeforeLateEntry(id);
       let added=(state.people||[]).find(x=>x.id===id)||(candidate&&(state.people||[]).find(x=>x.name===candidate.name&&x.doc===candidate.doc));
-      if(added){added.sampleTurn=inherited;added.entryTurn=inherited+1;added.originalRequired=30;added.required=Math.max(0,30-inherited);added.done=Number(added.done)||0;save();render();if(inherited>0)toast(added.name+' se incorpora al turno '+(inherited+1))}
+      if(added){added.sampleTurn=inherited;added.entryTurn=inherited+1;added.originalRequired=30;added.required=30;added.done=Number(added.done)||0;save();render();if(inherited>0)toast(added.name+' se incorpora al turno '+(inherited+1))}
     };
   }
 
