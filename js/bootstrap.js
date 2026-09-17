@@ -14,8 +14,8 @@
     'js/item-review-quick.js?v=20260910-1',
     'js/weekly-sample-closure.js?v=20260911-1',
     'js/group-week-close.js?v=20260915-1',
-    'js/person-sample-turns.js?v=20260916-4',
-    'js/late-entry-turn-edit.js?v=20260915-1',
+    'js/person-sample-turns.js?v=20260917-5',
+    'js/late-entry-turn-edit.js?v=20260917-2',
     'js/noncompliance-x.js?v=20260915-1',
     'js/sync-attention.js?v=20260911-2',
     'js/remove-group-item-button.js?v=20260911-1',
@@ -26,8 +26,8 @@
     'js/week-lifecycle.js?v=20260912-1',
     'js/calendar-week-control.js?v=20260916-1',
     'js/analyst-conformity-calculations.js?v=20260916-1',
-    'js/test-mode-week-control.js?v=20260916-3',
-    'js/azure-participant-sync.js?v=20260916-1',
+    'js/test-mode-week-control.js?v=20260917-4',
+    'js/azure-participant-sync.js?v=20260917-2',
     'js/azure-participant-state.js?v=20260917-1',
     'js/azure-evaluation-sync.js?v=20260916-1'
   ];
