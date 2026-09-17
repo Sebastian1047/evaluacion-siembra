@@ -8,8 +8,8 @@ function ensureSampleTurns(){
     if(typeof p.originalRequired!=='number') p.originalRequired=Number(p.required)||30;
   });
 }
-function minSampleTurn(){ensureSampleTurns();return state.people.length?Math.min(...state.people.map(p=>p.sampleTurn)):0}
-function currentGroupSampleTurn(){return minSampleTurn()+1}
+function minSampleTurn(){ensureSampleTurns();return state.people.length?Math.min(...state.people.map(p=>p.sampleTurn)):Math.max(0,(Number(state.weekOperationalSampleTurn)||1)-1)}
+function currentGroupSampleTurn(){return state.people.length?minSampleTurn()+1:Math.max(1,Number(state.weekOperationalSampleTurn)||1)}
 function pendingForTurn(turn){ensureSampleTurns();return state.people.filter(p=>p.sampleTurn<turn)}
 function canAdvancePerson(p){
   ensureSampleTurns();
@@ -44,6 +44,7 @@ async function confirmOmitCurrentSample(){
     });
     p.sampleTurn=info.next;
     p.required=Math.max(p.done,p.required-1);
+    state.weekOperationalSampleTurn=currentGroupSampleTurn();
     state.sampleTurnOmissions.push({
       week:state.currentWeek,
       year:state.currentYear,
@@ -73,7 +74,7 @@ commitEval=function(ids){
   let info=canAdvancePerson(p);if(!info.ok)return showTurnBlock(p,info);
   let beforeDone=p.done;
   commitEvalBeforeSampleTurns(ids);
-  if(p.done>beforeDone){p.sampleTurn=info.next;save()}
+  if(p.done>beforeDone){p.sampleTurn=info.next;state.weekOperationalSampleTurn=currentGroupSampleTurn();save()}
 };
 function decorateSampleTurnUI(){
   ensureSampleTurns();
