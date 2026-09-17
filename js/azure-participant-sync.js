@@ -22,6 +22,26 @@
         save();
       }
 
+      // Un sembrador quitado temporalmente ya tiene participación semanal.
+      // Se reactiva esa misma participación para conservar turnos, evaluaciones y omisiones.
+      if(candidate.removedFromWeek && Number(candidate.azureParticipationId)){
+        if(typeof SiembraApi.changeParticipantState!=='function')throw new Error('API de estado no disponible');
+        await SiembraApi.changeParticipantState(Number(candidate.azureParticipationId),'EN_LA_SEMANA');
+
+        localAddWorker(id);
+        const added=state.people.find(p=>p.id===candidate.id);
+        if(added){
+          added.azureParticipationId=Number(candidate.azureParticipationId);
+          added.turnoInicio=candidate.turnoInicio;
+          if(Number.isFinite(Number(candidate.done)))added.done=Number(candidate.done);
+          if(Number.isFinite(Number(candidate.required)))added.required=Number(candidate.required);
+          if(Number.isFinite(Number(candidate.originalRequired)))added.originalRequired=Number(candidate.originalRequired);
+          if(Number.isFinite(Number(candidate.sampleTurn)))added.sampleTurn=Number(candidate.sampleTurn);
+          save();
+        }
+        return toast(candidate.name+' volvió a la semana');
+      }
+
       const turnoInicio=typeof window.currentGroupSampleTurn==='function'
         ? currentGroupSampleTurn()
         : 1;
@@ -39,8 +59,8 @@
         save();
       }
     }catch(error){
-      console.error('No fue posible agregar el sembrador en Azure.',error);
-      toast('No se pudo guardar el sembrador en Azure. No se agregó al grupo.');
+      console.error('No fue posible agregar/restaurar el sembrador en Azure.',error);
+      toast('No se pudo guardar el sembrador en Azure. El grupo no fue modificado.');
     }
   };
 })();
