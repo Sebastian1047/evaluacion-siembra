@@ -28,12 +28,37 @@ function omitCurrentSample(){
   let info=canAdvancePerson(p);if(!info.ok)return showTurnBlock(p,info);
   modal(`<h3>No realizar muestra</h3><p><b>${p.name}</b></p><p>Se registrará como resuelto el <b>turno de muestra ${info.next}</b>, pero no contará como evaluación realizada.</p><p>Su meta efectiva bajará de <b>${p.required}</b> a <b>${Math.max(p.done,p.required-1)}</b> evaluaciones.</p><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmOmitCurrentSample()">No realizar muestra y volver al grupo</button></div>`);
 }
-function confirmOmitCurrentSample(){
+async function confirmOmitCurrentSample(){
   let p=current();if(!p)return;
   let info=canAdvancePerson(p);if(!info.ok){closeModal();return showTurnBlock(p,info)}
-  p.sampleTurn=info.next;p.required=Math.max(p.done,p.required-1);
-  state.sampleTurnOmissions.push({week:state.currentWeek,person:p.id,turn:p.sampleTurn,date:new Date().toISOString()});
-  state.view='grupo';save();closeModal();render();toast('Muestra no realizada · turno '+p.sampleTurn+' resuelto');
+  if(!p.azureParticipationId||!window.SiembraApi||typeof SiembraApi.resolveTurn!=='function'){
+    return toast('No se puede registrar la omisión: Azure no está disponible.');
+  }
+  const button=[...document.querySelectorAll('.modal button')].find(b=>/No realizar muestra y volver al grupo/i.test(b.textContent||''));
+  if(button){button.disabled=true;button.textContent='Guardando en Azure...'}
+  try{
+    const result=await SiembraApi.resolveTurn(p.azureParticipationId,info.next,{
+      tipo:'NO_REALIZADA',
+      incumplimientos:[],
+      usuarioCorporativoId:'asegurador-prueba'
+    });
+    p.sampleTurn=info.next;
+    p.required=Math.max(p.done,p.required-1);
+    state.sampleTurnOmissions.push({
+      week:state.currentWeek,
+      year:state.currentYear,
+      person:p.id,
+      turn:p.sampleTurn,
+      date:new Date().toISOString(),
+      synced:true,
+      azureResolutionId:result&&result.idResolucion
+    });
+    state.view='grupo';save();closeModal();render();toast('Muestra no realizada · turno '+p.sampleTurn+' guardado en Azure');
+  }catch(error){
+    console.error('No fue posible guardar No realizar muestra en Azure.',error);
+    if(button){button.disabled=false;button.textContent='No realizar muestra y volver al grupo'}
+    toast('No se pudo guardar en Azure. No se modificó el turno local.');
+  }
 }
 const goBeforeSampleTurns=go;
 go=function(v){
