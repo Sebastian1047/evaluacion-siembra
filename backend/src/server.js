@@ -17,6 +17,26 @@ app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,i
 
 app.get('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('id',sql.Int,req.params.semanaId).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdSemana=@id ORDER BY IdParticipacion');res.json(r.recordset);}catch(e){next(e);}});
 
+app.get('/api/semanas/:semanaId/estado-operativo',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('id',sql.Int,req.params.semanaId).query(`
+SELECT
+  p.IdParticipacion,
+  p.SembradorCorporativoId,
+  p.TurnoInicio,
+  p.Estado,
+  r.IdResolucion,
+  r.NumeroTurno,
+  r.Tipo,
+  r.ResueltoEn,
+  e.IdEvaluacion,
+  i.Codigo AS CodigoItem
+FROM dbo.ParticipacionSemanal p
+LEFT JOIN dbo.ResolucionTurno r ON r.IdParticipacion=p.IdParticipacion
+LEFT JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+LEFT JOIN dbo.Incumplimiento inc ON inc.IdEvaluacion=e.IdEvaluacion
+LEFT JOIN dbo.ItemEvaluacion i ON i.IdItem=inc.IdItem
+WHERE p.IdSemana=@id
+ORDER BY p.IdParticipacion,r.NumeroTurno,i.Orden,i.IdItem`);res.json(r.recordset);}catch(e){next(e);}});
+
 app.post('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const {sembradorId,turnoInicio}=req.body;const p=await getPool();const r=await p.request().input('sem',sql.Int,req.params.semanaId).input('sid',sql.NVarChar(100),sembradorId).input('turno',sql.SmallInt,turnoInicio).query(`INSERT dbo.ParticipacionSemanal(IdSemana,SembradorCorporativoId,TurnoInicio,Estado) OUTPUT INSERTED.* VALUES(@sem,@sid,@turno,'EN_LA_SEMANA')`);res.status(201).json(r.recordset[0]);}catch(e){next(e);}});
 
 app.post('/api/participaciones/:id/turnos/:turno/resolver',async(req,res,next)=>{const pool=await getPool();const tx=new sql.Transaction(pool);try{await tx.begin();const {tipo,incumplimientos=[],usuarioCorporativoId}=req.body;const request=new sql.Request(tx);const rr=await request.input('pid',sql.Int,req.params.id).input('turno',sql.SmallInt,req.params.turno).input('tipo',sql.VarChar(20),tipo).input('uid',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.ResolucionTurno(IdParticipacion,NumeroTurno,Tipo,UsuarioCorporativoId) OUTPUT INSERTED.IdResolucion VALUES(@pid,@turno,@tipo,@uid)`);const idResolucion=rr.recordset[0].IdResolucion;if(tipo==='EVALUACION'){const er=await new sql.Request(tx).input('rid',sql.BigInt,idResolucion).input('uid2',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.Evaluacion(IdResolucion,UsuarioCorporativoId) OUTPUT INSERTED.IdEvaluacion VALUES(@rid,@uid2)`);const eid=er.recordset[0].IdEvaluacion;for(const itemId of [...new Set(incumplimientos)]) await new sql.Request(tx).input('eid',sql.BigInt,eid).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid,@iid)');}await tx.commit();res.status(201).json({ok:true,idResolucion});}catch(e){try{await tx.rollback();}catch{}next(e);}});
