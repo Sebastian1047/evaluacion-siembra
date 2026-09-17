@@ -8,8 +8,6 @@
     'js/empleados-reales.js',
     'js/historial-analista.js',
     'js/item-review-quick.js?v=20260910-1',
-    'js/role-permissions.js?v=20260911-2',
-    'js/group-removal.js?v=20260916-2',
     'js/weekly-sample-closure.js?v=20260911-1',
     'js/group-week-close.js?v=20260915-1',
     'js/person-sample-turns.js?v=20260916-4',
@@ -27,7 +25,7 @@
     'js/test-mode-week-control.js?v=20260916-3',
     'js/azure-participant-sync.js?v=20260916-1',
     'js/azure-evaluation-sync.js?v=20260916-1',
-    'js/ui-stability.js?v=20260916-1'
+    'js/monitor-current-ui.js?v=20260916-1'
   ];
 
   for (const src of scripts) {
