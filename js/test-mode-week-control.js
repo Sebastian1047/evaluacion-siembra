@@ -2,7 +2,7 @@
 // Este archivo se carga al final para sobreescribir únicamente el control calendario del prototipo.
 (function(){
   const pad=n=>String(n).padStart(2,'0');
-  const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1,'0')}-${pad(d.getDate(),'0')}`;
   const fmt=d=>`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
   function firstSunday(year){let d=new Date(year,0,1);d.setDate(d.getDate()+((7-d.getDay())%7));return d}
   function datesForWeek(year,week){const start=firstSunday(year);start.setDate(start.getDate()+(week-1)*7);const end=new Date(start);end.setDate(end.getDate()+6);return {start,end}}
@@ -65,6 +65,9 @@
       const resolvedTurns=[...new Set(resolutionRows.map(r=>Number(r.NumeroTurno)))];
       const omittedRows=resolutionRows.filter(r=>r.Tipo==='NO_REALIZADA');
       const evaluationIds=[...new Set(rows.filter(r=>r.IdEvaluacion!=null).map(r=>Number(r.IdEvaluacion)))];
+      const ultimoTurnoIncorporacion=rows.length?Math.max(...rows.map(r=>Number(r.UltimoTurnoIncorporacion)||0)):0;
+      const ultimoTurnoResuelto=resolvedTurns.length?Math.max(...resolvedTurns):0;
+      const cursorReincorporacion=Math.max(0,ultimoTurnoIncorporacion-1);
       const person={
         id:personId,
         name:source.name,
@@ -73,9 +76,12 @@
         done:evaluationIds.length,
         required:Math.max(evaluationIds.length,30-omittedRows.length),
         originalRequired:30,
-        sampleTurn:resolvedTurns.length ? Math.max(...resolvedTurns) : Math.max(0,Number(ap.TurnoInicio||1)-1),
+        // El cursor operativo puede estar por delante del último turno realmente resuelto
+        // cuando hubo retiro y reincorporación. No inventa una resolución intermedia.
+        sampleTurn:Math.max(ultimoTurnoResuelto,cursorReincorporacion,Math.max(0,Number(ap.TurnoInicio||1)-1)),
         azureParticipationId:ap.IdParticipacion,
-        turnoInicio:ap.TurnoInicio
+        turnoInicio:ap.TurnoInicio,
+        ultimoTurnoIncorporacion:ultimoTurnoIncorporacion||Number(ap.TurnoInicio)||1
       };
 
       if(ap.Estado==='EN_LA_SEMANA'){
