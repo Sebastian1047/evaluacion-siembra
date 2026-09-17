@@ -8,29 +8,8 @@ app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split('
 app.use(express.json());
 
 async function ensureParticipationIntervals(pool){
-  await pool.request().query(`
-IF OBJECT_ID('dbo.TramoParticipacionSemanal','U') IS NULL
-BEGIN
-  CREATE TABLE dbo.TramoParticipacionSemanal(
-    IdTramo BIGINT IDENTITY(1,1) PRIMARY KEY,
-    IdParticipacion INT NOT NULL,
-    TurnoInicio SMALLINT NOT NULL,
-    TurnoFin SMALLINT NULL,
-    CreadoEn DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_Tramo_Participacion FOREIGN KEY(IdParticipacion) REFERENCES dbo.ParticipacionSemanal(IdParticipacion),
-    CONSTRAINT CK_Tramo_Inicio CHECK(TurnoInicio>=1),
-    CONSTRAINT CK_Tramo_Fin CHECK(TurnoFin IS NULL OR TurnoFin>=TurnoInicio)
-  );
-  CREATE INDEX IX_Tramo_Participacion ON dbo.TramoParticipacionSemanal(IdParticipacion,IdTramo);
-END;
-
-INSERT dbo.TramoParticipacionSemanal(IdParticipacion,TurnoInicio,TurnoFin)
-SELECT p.IdParticipacion,p.TurnoInicio,
-       CASE WHEN p.Estado='QUITADO_TEMPORALMENTE'
-            THEN (SELECT MAX(r.NumeroTurno) FROM dbo.ResolucionTurno r WHERE r.IdParticipacion=p.IdParticipacion)
-            ELSE NULL END
-FROM dbo.ParticipacionSemanal p
-WHERE NOT EXISTS(SELECT 1 FROM dbo.TramoParticipacionSemanal t WHERE t.IdParticipacion=p.IdParticipacion);`);
+  const r=await pool.request().query(`SELECT CASE WHEN OBJECT_ID('dbo.TramoParticipacion','U') IS NULL THEN 0 ELSE 1 END AS existe`);
+  if(!r.recordset[0]?.existe) throw new Error('Falta la migración dbo.TramoParticipacion');
 }
 
 app.get('/api/health', async (_req,res,next)=>{ try { const pool=await getPool(); await pool.request().query('SELECT 1 AS ok'); res.json({ok:true,database:true}); } catch(e){next(e);} });
@@ -41,7 +20,7 @@ app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,i
 app.get('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('id',sql.Int,req.params.semanaId).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdSemana=@id ORDER BY IdParticipacion');res.json(r.recordset);}catch(e){next(e);}});
 app.get('/api/semanas/:semanaId/estado-operativo',async(req,res,next)=>{try{const p=await getPool();await ensureParticipationIntervals(p);const r=await p.request().input('id',sql.Int,req.params.semanaId).query(`
 SELECT p.IdParticipacion,p.SembradorCorporativoId,p.TurnoInicio,p.Estado,
-  (SELECT MAX(t.TurnoInicio) FROM dbo.TramoParticipacionSemanal t WHERE t.IdParticipacion=p.IdParticipacion) AS UltimoTurnoIncorporacion,
+  (SELECT MAX(t.TurnoInicio) FROM dbo.TramoParticipacion t WHERE t.IdParticipacion=p.IdParticipacion) AS UltimoTurnoIncorporacion,
   r.IdResolucion,r.NumeroTurno,r.Tipo,r.ResueltoEn,e.IdEvaluacion,i.Codigo AS CodigoItem
 FROM dbo.ParticipacionSemanal p
 LEFT JOIN dbo.ResolucionTurno r ON r.IdParticipacion=p.IdParticipacion
@@ -50,7 +29,7 @@ LEFT JOIN dbo.Incumplimiento inc ON inc.IdEvaluacion=e.IdEvaluacion
 LEFT JOIN dbo.ItemEvaluacion i ON i.IdItem=inc.IdItem
 WHERE p.IdSemana=@id
 ORDER BY p.IdParticipacion,r.NumeroTurno,i.Orden,i.IdItem`);res.json(r.recordset);}catch(e){next(e);}});
-app.post('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const {sembradorId,turnoInicio}=req.body;const p=await getPool();await ensureParticipationIntervals(p);const tx=new sql.Transaction(p);await tx.begin();try{const r=await new sql.Request(tx).input('sem',sql.Int,req.params.semanaId).input('sid',sql.NVarChar(100),sembradorId).input('turno',sql.SmallInt,turnoInicio).query(`INSERT dbo.ParticipacionSemanal(IdSemana,SembradorCorporativoId,TurnoInicio,Estado) OUTPUT INSERTED.* VALUES(@sem,@sid,@turno,'EN_LA_SEMANA')`);const row=r.recordset[0];await new sql.Request(tx).input('pid',sql.Int,row.IdParticipacion).input('turno',sql.SmallInt,turnoInicio).query('INSERT dbo.TramoParticipacionSemanal(IdParticipacion,TurnoInicio) VALUES(@pid,@turno)');await tx.commit();res.status(201).json(row);}catch(e){await tx.rollback();throw e;}}catch(e){next(e);}});
+app.post('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const {sembradorId,turnoInicio}=req.body;const p=await getPool();await ensureParticipationIntervals(p);const tx=new sql.Transaction(p);await tx.begin();try{const r=await new sql.Request(tx).input('sem',sql.Int,req.params.semanaId).input('sid',sql.NVarChar(100),sembradorId).input('turno',sql.SmallInt,turnoInicio).query(`INSERT dbo.ParticipacionSemanal(IdSemana,SembradorCorporativoId,TurnoInicio,Estado) OUTPUT INSERTED.* VALUES(@sem,@sid,@turno,'EN_LA_SEMANA')`);const row=r.recordset[0];await new sql.Request(tx).input('pid',sql.Int,row.IdParticipacion).input('turno',sql.SmallInt,turnoInicio).query('INSERT dbo.TramoParticipacion(IdParticipacion,TurnoInicio) VALUES(@pid,@turno)');await tx.commit();res.status(201).json(row);}catch(e){await tx.rollback();throw e;}}catch(e){next(e);}});
 app.patch('/api/participaciones/:id/estado',async(req,res,next)=>{try{
   const estadosPermitidos=['EN_LA_SEMANA','QUITADO_TEMPORALMENTE'];
   const estado=String(req.body?.estado||'').trim().toUpperCase();
@@ -62,9 +41,9 @@ app.patch('/api/participaciones/:id/estado',async(req,res,next)=>{try{
     const current=await new sql.Request(tx).input('id',sql.Int,req.params.id).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdParticipacion=@id');
     const participant=current.recordset[0];if(!participant){await tx.rollback();return res.status(404).json({error:'Participación no encontrada'});}
     if(estado==='QUITADO_TEMPORALMENTE'){
-      await new sql.Request(tx).input('id',sql.Int,req.params.id).input('fin',sql.SmallInt,Math.max(1,turnoOperativo-1)).query(`UPDATE dbo.TramoParticipacionSemanal SET TurnoFin=@fin WHERE IdTramo=(SELECT TOP(1) IdTramo FROM dbo.TramoParticipacionSemanal WHERE IdParticipacion=@id AND TurnoFin IS NULL ORDER BY IdTramo DESC)`);
+      await new sql.Request(tx).input('id',sql.Int,req.params.id).input('fin',sql.SmallInt,Math.max(1,turnoOperativo-1)).query(`UPDATE dbo.TramoParticipacion SET TurnoFin=@fin WHERE IdTramo=(SELECT TOP(1) IdTramo FROM dbo.TramoParticipacion WHERE IdParticipacion=@id AND TurnoFin IS NULL ORDER BY IdTramo DESC)`);
     }else if(participant.Estado==='QUITADO_TEMPORALMENTE'){
-      await new sql.Request(tx).input('id',sql.Int,req.params.id).input('inicio',sql.SmallInt,turnoOperativo).query('INSERT dbo.TramoParticipacionSemanal(IdParticipacion,TurnoInicio) VALUES(@id,@inicio)');
+      await new sql.Request(tx).input('id',sql.Int,req.params.id).input('inicio',sql.SmallInt,turnoOperativo).query('INSERT dbo.TramoParticipacion(IdParticipacion,TurnoInicio) VALUES(@id,@inicio)');
     }
     const r=await new sql.Request(tx).input('id2',sql.Int,req.params.id).input('estado',sql.VarChar(30),estado).query('UPDATE dbo.ParticipacionSemanal SET Estado=@estado OUTPUT INSERTED.* WHERE IdParticipacion=@id2');
     await tx.commit();res.json({...r.recordset[0],TurnoReincorporacion:estado==='EN_LA_SEMANA'?turnoOperativo:null});
