@@ -1,5 +1,6 @@
 // Control de turnos de muestra en la evaluación individual.
-// sampleTurn = turnos resueltos (evaluados u omitidos).
+// sampleTurn = posición operativa del último turno resuelto; para una incorporación
+// tardía parte en TurnoInicio-1, pero los turnos previos no pertenecen a la persona.
 // done/required conserva evaluaciones efectivamente realizadas/meta efectiva.
 if(!state.sampleTurnOmissions)state.sampleTurnOmissions=[];
 function ensureSampleTurns(){
@@ -94,8 +95,13 @@ function decorateSampleTurnUI(){
   if(state.view==='seguimiento'){
     let p=current();if(!p)return;let hero=document.querySelector('.hero');if(!hero)return;
     if(!hero.querySelector('#sample-turn-person')){
+      const startTurn=Math.max(1,Number(p.turnoInicio)||1);
+      const internalTurn=Number(p.sampleTurn)||0;
+      const hasResolvedSinceEntry=internalTurn>=startTurn;
+      const turnLabel=hasResolvedSinceEntry?'Último turno de muestra resuelto':'Turno de incorporación';
+      const turnValue=hasResolvedSinceEntry?internalTurn:startTurn;
       let box=document.createElement('div');box.id='sample-turn-person';box.className='card';box.style.marginTop='12px';
-      box.innerHTML=`<div class="row between"><span>Turno de muestra resuelto</span><b>${p.sampleTurn}</b></div><div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra y volver al grupo</button>`;
+      box.innerHTML=`<div class="row between"><span>${turnLabel}</span><b>${turnValue}</b></div>${!hasResolvedSinceEntry&&startTurn>1?'<p class="muted" style="margin:6px 0 0">Aún no ha resuelto ningún turno desde su incorporación.</p>':''}<div class="row between"><span>Evaluaciones efectivas</span><b>${p.done} / ${p.required}</b></div><button class="btn ghost block" style="margin-top:10px" onclick="omitCurrentSample()">No realizar muestra y volver al grupo</button>`;
       hero.appendChild(box);
     }
 
