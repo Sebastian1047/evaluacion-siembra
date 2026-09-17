@@ -21,7 +21,14 @@
 
     personCard=function(p){
       const pc=Math.min(100,Math.round((Number(p.done)||0)/Math.max(1,Number(p.required)||30)*100));
-      const turn=typeof p.sampleTurn==='number'?p.sampleTurn:(Number(p.done)||0);
+      const internalTurn=typeof p.sampleTurn==='number'?p.sampleTurn:(Number(p.done)||0);
+      const startTurn=Math.max(1,Number(p.turnoInicio)||1);
+      // sampleTurn conserva la posición operativa interna. Los turnos anteriores a
+      // TurnoInicio no fueron resueltos por esta persona y no deben mostrarse como tales.
+      const resolvedSinceEntry=Math.max(0,internalTurn-startTurn+1);
+      const turnText=resolvedSinceEntry>0
+        ? `Turno resuelto: <b>${internalTurn}</b>`
+        : (startTurn>1?`Inicia en turno: <b>${startTurn}</b>`:'Turnos resueltos: <b>0</b>');
       return `<article class="card person" data-name="${p.name.toLowerCase()}" onclick="openPerson('${p.id}')" style="padding:9px 12px;margin-bottom:7px">
         <div class="row between" style="gap:8px;align-items:center;min-height:28px">
           <b style="line-height:1.15">${p.name}</b>
@@ -30,7 +37,7 @@
         <div style="display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;margin-top:5px;font-size:12px;line-height:1.15">
           <span><b>${p.done}/${p.required}</b> evaluaciones</span>
           <button class="btn danger small" style="margin:0;padding:4px 7px;min-height:0;font-size:11px;line-height:1.1" onclick="event.stopPropagation();confirmRemoveWorker('${p.id}')">Quitar de la semana</button>
-          <span class="muted" style="text-align:right;white-space:nowrap">Turno resuelto: <b>${turn}</b></span>
+          <span class="muted" style="text-align:right;white-space:nowrap">${turnText}</span>
         </div>
         <div class="progress" style="margin-top:5px;height:4px"><span style="width:${pc}%"></span></div>
       </article>`;
