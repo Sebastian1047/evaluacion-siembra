@@ -6,7 +6,17 @@ const empleadosReales=[
 
 function cargarEmpleadosRealesDePrueba(){
   const actuales=new Set((state.people||[]).map(p=>String(p.doc)));
-  state.available=empleadosReales.filter(e=>!actuales.has(e.codigo)).map(e=>({id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area}));
+  // Al reconstruir una semana desde Azure, los retirados temporalmente ya traen
+  // azureParticipationId, turnos y progreso. No debemos perder esos metadatos
+  // al abrir la pantalla + Agregar.
+  const disponiblesPrevios=new Map((state.available||[]).map(p=>[String(p.doc),p]));
+  state.available=empleadosReales.filter(e=>!actuales.has(e.codigo)).map(e=>{
+    const previo=disponiblesPrevios.get(String(e.codigo));
+    if(previo&&previo.removedFromWeek&&Number(previo.azureParticipationId)){
+      return {...previo,name:e.nombre,doc:e.codigo,area:e.area};
+    }
+    return {id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area};
+  });
   save();
 }
 
