@@ -19,10 +19,16 @@ app.get('/api/semanas/:anio(\\d+)/:numero(\\d+)', async(req,res,next)=>{try{cons
 app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,inicio,fin}=req.body;const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,anio).input('numero',sql.TinyInt,numero).input('inicio',sql.Date,inicio).input('fin',sql.Date,fin).query(`IF NOT EXISTS(SELECT 1 FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero) INSERT dbo.SemanaEvaluacion(AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado) VALUES(@anio,@numero,@inicio,@fin,'ABIERTA'); SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero;`);res.status(201).json(r.recordset[0]);}catch(e){next(e);}});
 app.get('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('id',sql.Int,req.params.semanaId).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdSemana=@id ORDER BY IdParticipacion');res.json(r.recordset);}catch(e){next(e);}});
 app.patch('/api/semanas/:semanaId/cerrar',async(req,res,next)=>{try{
+  const {usuarioCorporativoId=null}=req.body||{};
   const p=await getPool();
-  const r=await p.request().input('id',sql.Int,req.params.semanaId).query(`
+  const r=await p.request()
+    .input('id',sql.Int,req.params.semanaId)
+    .input('usuarioCorporativoId',sql.NVarChar(100),usuarioCorporativoId)
+    .query(`
 UPDATE dbo.SemanaEvaluacion
-SET Estado='CERRADA'
+SET Estado='CERRADA',
+    FechaCierre=SYSDATETIME(),
+    UsuarioCierreCorporativoId=@usuarioCorporativoId
 OUTPUT INSERTED.*
 WHERE IdSemana=@id AND Estado='ABIERTA';`);
   if(r.recordset[0])return res.json(r.recordset[0]);
