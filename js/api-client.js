@@ -6,7 +6,7 @@
   const getLatestWeek=()=>request('/api/semanas/ultima');
   const getWeek=(year,number)=>request(`/api/semanas/${year}/${number}`);
   const ensureWeek=({anio,numero,inicio,fin})=>request('/api/semanas/asegurar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anio,numero,inicio,fin})});
-  const closeWeek=semanaId=>request('/api/semanas/'+semanaId+'/cerrar',{method:'PATCH'});
+  const closeWeek=(semanaId,{usuarioCorporativoId=null}={})=>request('/api/semanas/'+semanaId+'/cerrar',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarioCorporativoId})});
   const getParticipants=semanaId=>request(`/api/semanas/${semanaId}/participantes`);
   const getOperationalState=semanaId=>request(`/api/semanas/${semanaId}/estado-operativo`);
   const addParticipant=(semanaId,{sembradorId,turnoInicio})=>request(`/api/semanas/${semanaId}/participantes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sembradorId,turnoInicio})});
