@@ -79,10 +79,14 @@
 
   window.requestTurnEdit=async function(turn){
     let p=current();if(!p)return;
-    if(correctionWeekIsClosed()||!canAssurerEditTurn(p,turn)){try{await refreshAzureCorrectionAuthorizations();}catch(error){console.warn('No fue posible consultar autorizaciones de corrección.',error);}}
+    let authorizationCheckFailed=false;
+    if(correctionWeekIsClosed()||!canAssurerEditTurn(p,turn)){
+      try{await refreshAzureCorrectionAuthorizations();}
+      catch(error){authorizationCheckFailed=true;console.warn('No fue posible consultar autorizaciones de corrección.',error);}
+    }
     if(!evaluationAt(p,turn))return modal(`<h3>Turno ${turn} sin evaluación</h3><p>Este turno no tiene una muestra revisada y no puede modificarse.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
     if(canOpenCorrection(p,turn))return editPreviousTurn(turn);
-    modal(`<h3>Turno ${turn} protegido</h3><p>Para corregir esta evaluación debe solicitar al <b>Analista</b> que la habilite.</p><p class="muted">Las evaluaciones más antiguas quedan protegidas para evitar modificaciones accidentales.</p><div class="row"><button class="btn primary" onclick="showPreviousTurns()">Entendido</button></div>`);
+    modal(`<h3>Turno ${turn} protegido</h3><p>Para corregir esta evaluación debe solicitar al <b>Analista</b> que la habilite.</p>${authorizationCheckFailed?'<p class="muted"><b>No fue posible verificar la autorización en Azure.</b> Por seguridad, la evaluación permanece bloqueada.</p>':'<p class="muted">La evaluación permanece protegida hasta que exista una autorización vigente del Analista.</p>'}<div class="row"><button class="btn primary" onclick="showPreviousTurns()">Entendido</button></div>`);
   };
 
   window.editPreviousTurn=function(turn){
