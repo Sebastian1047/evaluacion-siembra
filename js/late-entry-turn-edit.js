@@ -35,7 +35,8 @@
   function lastResolvedTurn(p){return Number(p.sampleTurn)||0}
   function canAssurerEditTurn(p,turn){return Number(turn)>=lastResolvedTurn(p)-1}
   function hasAzureCorrectionAuthorization(evaluation){return Boolean(evaluation&&evaluation.azureCorrectionAuthorized)}
-  function canOpenCorrection(p,turn){const evaluation=evaluationAt(p,turn);return canAssurerEditTurn(p,turn)||hasAzureCorrectionAuthorization(evaluation)}
+  function correctionWeekIsClosed(){return !!(state.closedGroupWeeks&&state.closedGroupWeeks['w'+state.currentWeek])}
+  function canOpenCorrection(p,turn){const evaluation=evaluationAt(p,turn);if(correctionWeekIsClosed())return hasAzureCorrectionAuthorization(evaluation);return canAssurerEditTurn(p,turn)||hasAzureCorrectionAuthorization(evaluation)}
   async function refreshAzureCorrectionAuthorizations(){
     if(!window.SiembraApi||typeof SiembraApi.getCorrectionAuthorizations!=='function')return false;
     let weekId=Number(state.currentAzureWeekId)||0;
@@ -78,7 +79,7 @@
 
   window.requestTurnEdit=async function(turn){
     let p=current();if(!p)return;
-    if(!canAssurerEditTurn(p,turn)){try{await refreshAzureCorrectionAuthorizations();}catch(error){console.warn('No fue posible consultar autorizaciones de corrección.',error);}}
+    if(correctionWeekIsClosed()||!canAssurerEditTurn(p,turn)){try{await refreshAzureCorrectionAuthorizations();}catch(error){console.warn('No fue posible consultar autorizaciones de corrección.',error);}}
     if(!evaluationAt(p,turn))return modal(`<h3>Turno ${turn} sin evaluación</h3><p>Este turno no tiene una muestra revisada y no puede modificarse.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
     if(canOpenCorrection(p,turn))return editPreviousTurn(turn);
     modal(`<h3>Turno ${turn} protegido</h3><p>Para corregir esta evaluación debe solicitar al <b>Analista</b> que la habilite.</p><p class="muted">Las evaluaciones más antiguas quedan protegidas para evitar modificaciones accidentales.</p><div class="row"><button class="btn primary" onclick="showPreviousTurns()">Entendido</button></div>`);
@@ -98,7 +99,7 @@
     const evaluation=evaluationAt(p,turn);
     if(!evaluation)return modal(`<h3>No se puede corregir</h3><p>El turno ${turn} no tiene una evaluación real registrada.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
     const authorized=hasAzureCorrectionAuthorization(evaluation);
-    if(!canAssurerEditTurn(p,turn)&&!authorized)return requestTurnEdit(turn);
+    if((correctionWeekIsClosed()||!canAssurerEditTurn(p,turn))&&!authorized)return requestTurnEdit(turn);
     if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly())return closeModal(),closedWeekMessage();
     ensureTurnEvents();
     const failures=[...document.querySelectorAll('[name=edit-turn-crit]:checked')].map(x=>x.value);
