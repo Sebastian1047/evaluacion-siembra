@@ -93,14 +93,27 @@
     modal(`<h3>Corregir evaluación · turno ${turn}</h3><p><b>${p.name}</b></p><h3 style="margin-bottom:4px">Ítems incumplidos</h3><p class="muted">Corrija únicamente el resultado de la muestra que realmente fue revisada. Marque los ítems que <b>No cumplen</b>; si no marca ninguno, todos se consideran cumplidos.</p><div class="checks">${criterionChecks(failures)}</div><p class="muted" style="margin-top:14px">La corrección no cambia el turno, no crea ni elimina una evaluación y no modifica la meta efectiva.</p><div class="row"><button class="btn ghost" onclick="showPreviousTurns()">Cancelar</button><button class="btn primary" onclick="savePreviousTurnCorrection(${turn})">Guardar corrección</button></div>`);
   };
 
-  window.savePreviousTurnCorrection=function(turn){
+  window.savePreviousTurnCorrection=async function(turn){
     let p=current();if(!p)return;
-    if(!canAssurerEditTurn(p,turn))return requestTurnEdit(turn);
-    if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly())return closeModal(),closedWeekMessage();
-    ensureTurnEvents();
     const evaluation=evaluationAt(p,turn);
     if(!evaluation)return modal(`<h3>No se puede corregir</h3><p>El turno ${turn} no tiene una evaluación real registrada.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
+    const authorized=hasAzureCorrectionAuthorization(evaluation);
+    if(!canAssurerEditTurn(p,turn)&&!authorized)return requestTurnEdit(turn);
+    if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly())return closeModal(),closedWeekMessage();
+    ensureTurnEvents();
     const failures=[...document.querySelectorAll('[name=edit-turn-crit]:checked')].map(x=>x.value);
+    if(authorized){
+      if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
+      const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
+      if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
+      try{
+        await SiembraApi.saveAuthorizedCorrection(Number(evaluation.azureResolutionId),{incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
+        evaluation.azureCorrectionAuthorized=false;
+      }catch(error){
+        console.error('No fue posible guardar la corrección autorizada en Azure.',error);
+        return toast('No se pudo guardar la corrección. Mantenga la conexión a Internet e inténtelo nuevamente.');
+      }
+    }
     evaluation.failures=failures;
     evaluation.score=Math.max(0,100-failures.length*8);
     evaluation.corrected=true;
