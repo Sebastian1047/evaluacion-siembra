@@ -107,6 +107,15 @@ async function reconcilePendingAzureWeekClose(){
   }
 }
 window.reconcilePendingAzureWeekClose=reconcilePendingAzureWeekClose;
+if(typeof doSync==='function'){
+  const doSyncBeforeWeekCloseReconciliation=doSync;
+  doSync=async function(){
+    const ok=await reconcilePendingAzureWeekClose();
+    if(!ok)return;
+    return doSyncBeforeWeekCloseReconciliation.apply(this,arguments);
+  };
+}
+
 
 function decorateGroupWeekClose(){
   if(state.role!=='monitor')return;
