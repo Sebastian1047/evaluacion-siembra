@@ -101,8 +101,14 @@ async function loadAzureAuthorizationsView(){
     const week=await SiembraApi.getLatestWeek();
     const weekId=Number(week.IdSemana)||0;
     if(!weekId)throw new Error('Semana Azure no disponible');
-    const operational=await SiembraApi.getOperationalState(weekId);
+    const [operational,authorizations]=await Promise.all([
+      SiembraApi.getOperationalState(weekId),
+      SiembraApi.getCorrectionAuthorizations(weekId)
+    ]);
     const rows=Array.isArray(operational)?operational:[];
+    const unavailableResolutions=new Set((Array.isArray(authorizations)?authorizations:[])
+      .filter(a=>a.Estado==='AUTORIZADA'||a.Estado==='UTILIZADA')
+      .map(a=>Number(a.IdResolucion)));
     const byParticipation=new Map();
     rows.forEach(r=>{
       const pid=Number(r.IdParticipacion);
@@ -118,6 +124,7 @@ async function loadAzureAuthorizationsView(){
       for(const turn of turns){
         if(direct.has(turn))continue;
         const row=evaluated.find(r=>Number(r.NumeroTurno)===turn);
+        if(unavailableResolutions.has(Number(row.IdResolucion)))continue;
         cards.push({resolutionId:Number(row.IdResolucion),personId:String(first.SembradorCorporativoId||''),turn});
       }
     }
