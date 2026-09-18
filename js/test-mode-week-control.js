@@ -124,8 +124,15 @@
       return removed || {id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area};
     });
     if(!state.calendarWeeks)state.calendarWeeks={};
-    state.calendarWeeks[`${year}-w${week}`]={status:'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
-    save(); closeModal(); render(); toast(`Semana ${week} de ${year} abierta y reconstruida desde Azure`);
+    const azureClosed=String(azureWeek.Estado||'').toUpperCase()==='CERRADA';
+    state.calendarWeeks[`${year}-w${week}`]={status:azureClosed?'CERRADA':'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
+    if(!state.closedGroupWeeks)state.closedGroupWeeks={};
+    if(azureClosed){
+      state.closedGroupWeeks['w'+week]={...(state.closedGroupWeeks['w'+week]||{}),closed:true,azureClosed:true,closedAt:azureWeek.FechaCierre||state.closedGroupWeeks['w'+week]?.closedAt||new Date().toISOString()};
+    }else{
+      delete state.closedGroupWeeks['w'+week];
+    }
+    save(); closeModal(); render(); toast(`Semana ${week} de ${year} ${azureClosed?'cerrada':'abierta'} y reconstruida desde Azure`);
   };
 
   async function openLatestAzureWeek(){
