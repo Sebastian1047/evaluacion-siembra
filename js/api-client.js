@@ -6,6 +6,7 @@
   const getLatestWeek=()=>request('/api/semanas/ultima');
   const getWeek=(year,number)=>request(`/api/semanas/${year}/${number}`);
   const ensureWeek=({anio,numero,inicio,fin})=>request('/api/semanas/asegurar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({anio,numero,inicio,fin})});
+  const closeWeek=semanaId=>request('/api/semanas/'+semanaId+'/cerrar',{method:'PATCH'});
   const getParticipants=semanaId=>request(`/api/semanas/${semanaId}/participantes`);
   const getOperationalState=semanaId=>request(`/api/semanas/${semanaId}/estado-operativo`);
   const addParticipant=(semanaId,{sembradorId,turnoInicio})=>request(`/api/semanas/${semanaId}/participantes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sembradorId,turnoInicio})});
@@ -15,5 +16,5 @@
   const authorizeCorrection=(resolucionId,data)=>request('/api/resoluciones/'+resolucionId+'/autorizaciones-correccion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   const saveAuthorizedCorrection=(resolucionId,{incumplimientos=[],usuarioCorporativoId})=>request('/api/resoluciones/'+resolucionId+'/correccion',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({incumplimientos,usuarioCorporativoId})});
   async function loadCriteriaIntoSeed(){if(typeof seed==='undefined'||!Array.isArray(seed.criteria))throw new Error('seed.criteria no está disponible');const localFallback=seed.criteria.map(c=>[...c]);try{const items=await getItems();const activeItems=Array.isArray(items)?items.filter(item=>item.activo!==false):[];if(!activeItems.length)throw new Error('La API no devolvió ítems activos');window.SiembraAzureItemIds=Object.fromEntries(activeItems.map(item=>[String(item.codigo),Number(item.id)]));seed.criteria=activeItems.map(item=>[item.codigo,item.nombre,Boolean(item.esCritico)]);window.SiembraCriteriaSource='azure';return seed.criteria;}catch(error){seed.criteria=localFallback;window.SiembraAzureItemIds={};window.SiembraCriteriaSource='local-fallback';console.warn('No fue posible cargar los ítems desde Azure; se usan los criterios locales.',error);return seed.criteria;}}
-  window.SiembraApi=Object.freeze({baseUrl:API_BASE_URL,getItems,getLatestWeek,getWeek,ensureWeek,getParticipants,getOperationalState,addParticipant,changeParticipantState,resolveTurn,getCorrectionAuthorizations,authorizeCorrection,saveAuthorizedCorrection,loadCriteriaIntoSeed});
+  window.SiembraApi=Object.freeze({baseUrl:API_BASE_URL,getItems,getLatestWeek,getWeek,ensureWeek,closeWeek,getParticipants,getOperationalState,addParticipant,changeParticipantState,resolveTurn,getCorrectionAuthorizations,authorizeCorrection,saveAuthorizedCorrection,loadCriteriaIntoSeed});
 })();
