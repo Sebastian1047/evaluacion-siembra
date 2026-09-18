@@ -60,6 +60,51 @@ app.patch('/api/participaciones/:id/estado',async(req,res,next)=>{try{
   }catch(e){try{await tx.rollback();}catch{}throw e;}
 }catch(e){next(e);}});
 app.post('/api/participaciones/:id/turnos/:turno/resolver',async(req,res,next)=>{const pool=await getPool();const tx=new sql.Transaction(pool);try{await tx.begin();const {tipo,incumplimientos=[],usuarioCorporativoId}=req.body;const request=new sql.Request(tx);const rr=await request.input('pid',sql.Int,req.params.id).input('turno',sql.SmallInt,req.params.turno).input('tipo',sql.VarChar(20),tipo).input('uid',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.ResolucionTurno(IdParticipacion,NumeroTurno,Tipo,UsuarioCorporativoId) OUTPUT INSERTED.IdResolucion VALUES(@pid,@turno,@tipo,@uid)`);const idResolucion=rr.recordset[0].IdResolucion;if(tipo==='EVALUACION'){const er=await new sql.Request(tx).input('rid',sql.BigInt,idResolucion).input('uid2',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.Evaluacion(IdResolucion,UsuarioCorporativoId) OUTPUT INSERTED.IdEvaluacion VALUES(@rid,@uid2)`);const eid=er.recordset[0].IdEvaluacion;for(const itemId of [...new Set(incumplimientos)]) await new sql.Request(tx).input('eid',sql.BigInt,eid).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid,@iid)');}await tx.commit();res.status(201).json({ok:true,idResolucion});}catch(e){try{await tx.rollback();}catch{}next(e);}});
+// Autorizaciones de corrección persistidas en Azure SQL.
+// Se consultan por semana para que Analista y Asegurador compartan el mismo estado.
+app.get('/api/semanas/:semanaId/autorizaciones-correccion',async(req,res,next)=>{try{
+  const p=await getPool();
+  const r=await p.request().input('sem',sql.Int,req.params.semanaId).query(`
+SELECT a.IdAutorizacion,a.IdResolucion,a.SolicitadaPor,a.AprobadaPor,a.Estado,a.SolicitadaEn,a.AprobadaEn,a.ExpiraEn,a.UtilizadaEn,
+       r.NumeroTurno,r.Tipo,r.IdParticipacion,ps.SembradorCorporativoId,e.IdEvaluacion
+FROM dbo.AutorizacionCorreccion a
+JOIN dbo.ResolucionTurno r ON r.IdResolucion=a.IdResolucion
+JOIN dbo.ParticipacionSemanal ps ON ps.IdParticipacion=r.IdParticipacion
+LEFT JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+WHERE ps.IdSemana=@sem
+ORDER BY a.IdAutorizacion DESC`);
+  res.json(r.recordset);
+}catch(e){next(e);}});
+
+app.post('/api/resoluciones/:id/autorizaciones-correccion',async(req,res,next)=>{try{
+  const {solicitadaPor,aprobadaPor}=req.body||{};
+  if(!solicitadaPor||!aprobadaPor)return res.status(400).json({error:'solicitadaPor y aprobadaPor son obligatorios'});
+  const p=await getPool();const tx=new sql.Transaction(p);await tx.begin();
+  try{
+    const target=await new sql.Request(tx).input('rid',sql.BigInt,req.params.id).query(`
+SELECT r.IdResolucion,r.Tipo,e.IdEvaluacion
+FROM dbo.ResolucionTurno r
+LEFT JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+WHERE r.IdResolucion=@rid`);
+    const row=target.recordset[0];
+    if(!row){await tx.rollback();return res.status(404).json({error:'Resolución no encontrada'});}
+    if(row.Tipo!=='EVALUACION'||!row.IdEvaluacion){await tx.rollback();return res.status(400).json({error:'Solo una evaluación real puede habilitarse para corrección'});}
+    const existing=await new sql.Request(tx).input('rid2',sql.BigInt,req.params.id).query(`
+SELECT TOP(1) * FROM dbo.AutorizacionCorreccion
+WHERE IdResolucion=@rid2 AND Estado='AUTORIZADA' AND UtilizadaEn IS NULL AND (ExpiraEn IS NULL OR ExpiraEn>SYSUTCDATETIME())
+ORDER BY IdAutorizacion DESC`);
+    if(existing.recordset[0]){await tx.commit();return res.json(existing.recordset[0]);}
+    const created=await new sql.Request(tx)
+      .input('rid3',sql.BigInt,req.params.id)
+      .input('sol',sql.NVarChar(100),solicitadaPor)
+      .input('apr',sql.NVarChar(100),aprobadaPor)
+      .query(`INSERT dbo.AutorizacionCorreccion(IdResolucion,SolicitadaPor,AprobadaPor,Estado,SolicitadaEn,AprobadaEn)
+              OUTPUT INSERTED.*
+              VALUES(@rid3,@sol,@apr,'AUTORIZADA',SYSUTCDATETIME(),SYSUTCDATETIME())`);
+    await tx.commit();res.status(201).json(created.recordset[0]);
+  }catch(e){try{await tx.rollback();}catch{}throw e;}
+}catch(e){next(e);}});
+
 app.get('/api/reportes/conformidad/:semanaId',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('sem',sql.Int,req.params.semanaId).query('EXEC dbo.sp_ConformidadIndividual @IdSemana=@sem');res.json(r.recordset);}catch(e){next(e);}});
 app.use((err,_req,res,_next)=>{console.error(err);res.status(500).json({error:'Error interno',detail:process.env.NODE_ENV==='production'?undefined:err.message});});
 const port=Number(process.env.PORT||3000);
