@@ -120,7 +120,8 @@ async function loadAzureAuthorizationsView(){
       const first=participantRows[0]||{};
       const evaluated=participantRows.filter(r=>r.Tipo==='EVALUACION'&&r.IdEvaluacion&&Number(r.NumeroTurno)>0);
       const turns=[...new Set(evaluated.map(r=>Number(r.NumeroTurno)))].sort((a,b)=>b-a);
-      const direct=new Set(turns.slice(0,2));
+      const weekClosed=String(week.Estado||'').toUpperCase()==='CERRADA';
+      const direct=weekClosed?new Set():new Set(turns.slice(0,2));
       for(const turn of turns){
         if(direct.has(turn))continue;
         const row=evaluated.find(r=>Number(r.NumeroTurno)===turn);
