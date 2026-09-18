@@ -113,14 +113,26 @@ function manage(){
   app.innerHTML=layout(`<section style="max-width:760px;margin:0 auto">${cards||'<div class="card muted">No hay evaluaciones disponibles para habilitar.</div>'}</section>`,'gestion');
 }
 
-window.enableOldEvaluation=function(id){
+window.enableOldEvaluation=async function(id){
   const evaluation=(state.evals||[]).find(e=>String(e.id)===String(id));
   if(!evaluation)return toast('Evaluación no encontrada');
-  if(!state.enabledEvaluationCorrections)state.enabledEvaluationCorrections={};
-  state.enabledEvaluationCorrections[String(id)]={enabled:true,enabledAt:new Date().toISOString()};
-  save();
-  toast('Evaluación habilitada');
-  render();
+  const resolutionId=Number(evaluation.azureResolutionId)||0;
+  if(!resolutionId)return toast('Esta evaluación todavía no está sincronizada con Azure');
+  if(!window.SiembraApi||typeof SiembraApi.authorizeCorrection!=='function')return toast('No se pudo conectar con el servicio de autorizaciones');
+  try{
+    const authorization=await SiembraApi.authorizeCorrection(resolutionId,{
+      solicitadaPor:'asegurador-prueba',
+      aprobadaPor:'analista-prueba'
+    });
+    if(!state.enabledEvaluationCorrections)state.enabledEvaluationCorrections={};
+    state.enabledEvaluationCorrections[String(id)]={enabled:true,enabledAt:new Date().toISOString(),azureAuthorizationId:authorization.IdAutorizacion||authorization.idAutorizacion||null};
+    save();
+    toast('Evaluación habilitada y sincronizada con Azure');
+    render();
+  }catch(error){
+    console.error('No fue posible habilitar la evaluación en Azure.',error);
+    toast('No se pudo habilitar la evaluación. Verifique la conexión a Internet.');
+  }
 };
 function history(){
   let week=state.currentWeek;
