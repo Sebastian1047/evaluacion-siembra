@@ -91,7 +91,37 @@ function report(){let body=state.reportCharts.length?state.reportCharts.map(repo
 function removeReportChart(id){state.reportCharts=state.reportCharts.filter(g=>g.id!==id);save();render();toast('Gráfico retirado del documento')}
 function saveReportNote(id,note){let g=state.reportCharts.find(x=>x.id===id);if(g){g.note=note;save()}}
 function fakeReport(){if(!state.reportCharts.length)return toast('Agregue al menos un gráfico');$('#reportStatus').innerHTML='<p class="card">Generando documento...</p>';setTimeout(()=>$('#reportStatus').innerHTML='<div class="card"><span class="badge">✓ Informe generado</span><p class="muted" style="margin-top:10px">Simulación: el informe final contendría los '+state.reportCharts.length+' gráficos seleccionados y las notas del analista.</p></div>',800)}
-function manage(){group()}
+function manage(){
+  const rows=(state.evals||[]).filter(e=>{
+    const turn=Number(e.turn);
+    if(!turn)return false;
+    const person=(state.people||[]).find(p=>p.id===e.person)||(state.available||[]).find(p=>p.id===e.person);
+    if(!person)return false;
+    const last=Number(person.sampleTurn)||0;
+    // El Asegurador corrige directamente el último turno evaluado y el inmediatamente anterior.
+    // Solo las evaluaciones reales más antiguas pueden requerir habilitación del Analista.
+    return turn<last-1;
+  }).sort((a,b)=>(Number(b.year)||Number(state.currentYear)||0)-(Number(a.year)||Number(state.currentYear)||0)||(Number(b.week)||Number(state.currentWeek)||0)-(Number(a.week)||Number(state.currentWeek)||0)||Number(b.turn)-Number(a.turn));
+
+  const cards=rows.map(e=>{
+    const person=(state.people||[]).find(p=>p.id===e.person)||(state.available||[]).find(p=>p.id===e.person);
+    const week=Number(e.week)||Number(state.currentWeek)||'—';
+    const year=Number(e.year)||Number(state.currentYear)||'';
+    return `<article class="card"><div class="row between wrap"><div><b>${person?person.name:'Sembrador'}</b><div class="muted small">Semana ${week}${year?' · '+year:''} · Turno ${Number(e.turn)}</div></div><button class="btn primary small" onclick="enableOldEvaluation('${e.id}')">Habilitar</button></div></article>`;
+  }).join('');
+
+  app.innerHTML=layout(`<section style="max-width:760px;margin:0 auto">${cards||'<div class="card muted">No hay evaluaciones disponibles para habilitar.</div>'}</section>`,'gestion');
+}
+
+window.enableOldEvaluation=function(id){
+  const evaluation=(state.evals||[]).find(e=>String(e.id)===String(id));
+  if(!evaluation)return toast('Evaluación no encontrada');
+  if(!state.enabledEvaluationCorrections)state.enabledEvaluationCorrections={};
+  state.enabledEvaluationCorrections[String(id)]={enabled:true,enabledAt:new Date().toISOString()};
+  save();
+  toast('Evaluación habilitada');
+  render();
+};
 function history(){
   let week=state.currentWeek;
   let people=state.people.length?state.people:seed.people;
