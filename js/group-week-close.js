@@ -61,7 +61,7 @@ async function confirmCloseGroupWeek(){
       weekId=Number(week.IdSemana)||0;
     }
     if(!weekId)throw new Error('Semana Azure no identificada');
-    await SiembraApi.closeWeek(weekId);
+    await SiembraApi.closeWeek(weekId,{usuarioCorporativoId:'asegurador-prueba'});
   }catch(error){
     console.error('No fue posible cerrar la semana en Azure.',error);
     return toast('No se pudo cerrar la semana. Mantenga la conexión a Internet e inténtelo nuevamente.');
@@ -96,7 +96,7 @@ async function reconcilePendingAzureWeekClose(){
   if(!rec||!rec.closed||!window.SiembraApi||typeof SiembraApi.closeWeek!=='function')return true;
   try{
     const week=await SiembraApi.getWeek(state.currentYear||2026,state.currentWeek);
-    if(String(week.Estado||'').toUpperCase()!=='CERRADA')await SiembraApi.closeWeek(Number(week.IdSemana));
+    if(String(week.Estado||'').toUpperCase()!=='CERRADA')await SiembraApi.closeWeek(Number(week.IdSemana),{usuarioCorporativoId:'asegurador-prueba'});
     state.currentAzureWeekId=Number(week.IdSemana)||state.currentAzureWeekId;
     rec.azureClosed=true;rec.azureClosedAt=new Date().toISOString();save();
     return true;
