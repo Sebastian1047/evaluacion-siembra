@@ -91,6 +91,23 @@ if(typeof applyRequired==='function'){const f=applyRequired;applyRequired=functi
 if(typeof addWorker==='function'){const f=addWorker;addWorker=function(id){if(groupWeekReadOnly())return closedWeekMessage();return f(id)}}
 if(typeof confirmRemoveFromGroup==='function'){const f=confirmRemoveFromGroup;confirmRemoveFromGroup=function(id){if(groupWeekReadOnly())return closedWeekMessage();return f(id)}}
 if(typeof annulEval==='function'){const f=annulEval;annulEval=function(){if(groupWeekReadOnly())return closedWeekMessage();return f()}}
+async function reconcilePendingAzureWeekClose(){
+  const rec=closedRecord();
+  if(!rec||!rec.closed||!window.SiembraApi||typeof SiembraApi.closeWeek!=='function')return true;
+  try{
+    const week=await SiembraApi.getWeek(state.currentYear||2026,state.currentWeek);
+    if(String(week.Estado||'').toUpperCase()!=='CERRADA')await SiembraApi.closeWeek(Number(week.IdSemana));
+    state.currentAzureWeekId=Number(week.IdSemana)||state.currentAzureWeekId;
+    rec.azureClosed=true;rec.azureClosedAt=new Date().toISOString();save();
+    return true;
+  }catch(error){
+    console.error('No fue posible reconciliar el cierre pendiente con Azure.',error);
+    toast('El cierre sigue pendiente de sincronizar con Azure');
+    return false;
+  }
+}
+window.reconcilePendingAzureWeekClose=reconcilePendingAzureWeekClose;
+
 function decorateGroupWeekClose(){
   if(state.role!=='monitor')return;
   let closed=groupWeekIsClosed(),readOnly=groupWeekReadOnly();
