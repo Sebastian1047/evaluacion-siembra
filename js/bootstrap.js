@@ -11,7 +11,7 @@
     'js/week-options.js',
     'js/empleados-reales.js',
     'js/historial-analista.js',
-    'js/item-review-quick.js?v=20260918-1',
+    'js/item-review-quick.js?v=20260918-2',
     'js/weekly-sample-closure.js?v=20260911-1',
     'js/group-week-close.js?v=20260918-2',
     'js/person-sample-turns.js?v=20260917-5',
