@@ -41,9 +41,22 @@
     let weekId=Number(state.currentAzureWeekId)||0;
     if(!weekId){const week=await SiembraApi.getWeek(state.currentYear||2026,state.currentWeek);weekId=Number(week.IdSemana)||0;}
     if(!weekId)return false;
-    const authorizations=await SiembraApi.getCorrectionAuthorizations(weekId);
-    const authorized=new Set((Array.isArray(authorizations)?authorizations:[]).filter(a=>a.Estado==='AUTORIZADA'&&!a.UtilizadaEn).map(a=>Number(a.IdResolucion)));
-    (state.evals||[]).forEach(e=>{e.azureCorrectionAuthorized=authorized.has(Number(e.azureResolutionId));});
+    const [authorizations,operational]=await Promise.all([
+      SiembraApi.getCorrectionAuthorizations(weekId),
+      SiembraApi.getOperationalState(weekId)
+    ]);
+    const active=(Array.isArray(authorizations)?authorizations:[]).filter(a=>a.Estado==='AUTORIZADA'&&!a.UtilizadaEn);
+    const authorizedResolutions=new Set(active.map(a=>Number(a.IdResolucion)));
+    const authorizedKeys=new Set(active.map(a=>String(a.SembradorCorporativoId||'')+'|'+Number(a.NumeroTurno)));
+    const resolutionByKey=new Map((Array.isArray(operational)?operational:[]).filter(r=>r.Tipo==='EVALUACION'&&r.IdResolucion!=null).map(r=>[String(r.SembradorCorporativoId||'')+'|'+Number(r.NumeroTurno),Number(r.IdResolucion)]));
+    (state.evals||[]).forEach(e=>{
+      const person=(state.people||[]).find(p=>p.id===e.person)||(state.available||[]).find(p=>p.id===e.person);
+      const corporateId=String((person&&(person.doc||person.id))||e.personId||e.person||'');
+      const key=corporateId+'|'+Number(e.turn);
+      const resolutionId=Number(e.azureResolutionId)||resolutionByKey.get(key)||0;
+      if(resolutionId&&!e.azureResolutionId)e.azureResolutionId=resolutionId;
+      e.azureCorrectionAuthorized=authorizedResolutions.has(resolutionId)||authorizedKeys.has(key);
+    });
     state.currentAzureWeekId=weekId;save();return true;
   }
 
