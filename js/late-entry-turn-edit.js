@@ -34,6 +34,18 @@
   // Los más antiguos requieren habilitación del Analista.
   function lastResolvedTurn(p){return Number(p.sampleTurn)||0}
   function canAssurerEditTurn(p,turn){return Number(turn)>=lastResolvedTurn(p)-1}
+  function hasAzureCorrectionAuthorization(evaluation){return Boolean(evaluation&&evaluation.azureCorrectionAuthorized)}
+  function canOpenCorrection(p,turn){const evaluation=evaluationAt(p,turn);return canAssurerEditTurn(p,turn)||hasAzureCorrectionAuthorization(evaluation)}
+  async function refreshAzureCorrectionAuthorizations(){
+    if(!window.SiembraApi||typeof SiembraApi.getCorrectionAuthorizations!=='function')return false;
+    let weekId=Number(state.currentAzureWeekId)||0;
+    if(!weekId){const week=await SiembraApi.getWeek(state.currentYear||2026,state.currentWeek);weekId=Number(week.IdSemana)||0;}
+    if(!weekId)return false;
+    const authorizations=await SiembraApi.getCorrectionAuthorizations(weekId);
+    const authorized=new Set((Array.isArray(authorizations)?authorizations:[]).filter(a=>a.Estado==='AUTORIZADA'&&!a.UtilizadaEn).map(a=>Number(a.IdResolucion)));
+    (state.evals||[]).forEach(e=>{e.azureCorrectionAuthorized=authorized.has(Number(e.azureResolutionId));});
+    state.currentAzureWeekId=weekId;save();return true;
+  }
 
   function personTurnRows(p){
     ensureTurnEvents();
@@ -51,10 +63,11 @@
     modal(`<h3>Corregir evaluaciones</h3><p><b>${p.name}</b></p><p class="muted">Solo aparecen turnos en los que realmente se revisó una muestra. Los turnos sin muestra no pueden modificarse. Las evaluaciones más antiguas conservan las condiciones de autorización definidas.</p><div style="max-height:360px;overflow:auto">${personTurnRows(p)}</div><button class="btn ghost block" onclick="closeModal()">Cerrar</button>`);
   };
 
-  window.requestTurnEdit=function(turn){
+  window.requestTurnEdit=async function(turn){
     let p=current();if(!p)return;
+    if(!canAssurerEditTurn(p,turn)){try{await refreshAzureCorrectionAuthorizations();}catch(error){console.warn('No fue posible consultar autorizaciones de corrección.',error);}}
     if(!evaluationAt(p,turn))return modal(`<h3>Turno ${turn} sin evaluación</h3><p>Este turno no tiene una muestra revisada y no puede modificarse.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
-    if(canAssurerEditTurn(p,turn))return editPreviousTurn(turn);
+    if(canOpenCorrection(p,turn))return editPreviousTurn(turn);
     modal(`<h3>Turno ${turn} protegido</h3><p>Para corregir esta evaluación debe solicitar al <b>Analista</b> que la habilite.</p><p class="muted">Las evaluaciones más antiguas quedan protegidas para evitar modificaciones accidentales.</p><div class="row"><button class="btn primary" onclick="showPreviousTurns()">Entendido</button></div>`);
   };
 
@@ -62,7 +75,7 @@
     let p=current();if(!p)return;
     let evaluation=evaluationAt(p,turn);
     if(!evaluation)return requestTurnEdit(turn);
-    if(!canAssurerEditTurn(p,turn))return requestTurnEdit(turn);
+    if(!canOpenCorrection(p,turn))return requestTurnEdit(turn);
     let failures=Array.isArray(evaluation.failures)?evaluation.failures:[];
     modal(`<h3>Corregir evaluación · turno ${turn}</h3><p><b>${p.name}</b></p><h3 style="margin-bottom:4px">Ítems incumplidos</h3><p class="muted">Corrija únicamente el resultado de la muestra que realmente fue revisada. Marque los ítems que <b>No cumplen</b>; si no marca ninguno, todos se consideran cumplidos.</p><div class="checks">${criterionChecks(failures)}</div><p class="muted" style="margin-top:14px">La corrección no cambia el turno, no crea ni elimina una evaluación y no modifica la meta efectiva.</p><div class="row"><button class="btn ghost" onclick="showPreviousTurns()">Cancelar</button><button class="btn primary" onclick="savePreviousTurnCorrection(${turn})">Guardar corrección</button></div>`);
   };
