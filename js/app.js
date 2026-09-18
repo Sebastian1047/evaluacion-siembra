@@ -92,25 +92,55 @@ function removeReportChart(id){state.reportCharts=state.reportCharts.filter(g=>g
 function saveReportNote(id,note){let g=state.reportCharts.find(x=>x.id===id);if(g){g.note=note;save()}}
 function fakeReport(){if(!state.reportCharts.length)return toast('Agregue al menos un gráfico');$('#reportStatus').innerHTML='<p class="card">Generando documento...</p>';setTimeout(()=>$('#reportStatus').innerHTML='<div class="card"><span class="badge">✓ Informe generado</span><p class="muted" style="margin-top:10px">Simulación: el informe final contendría los '+state.reportCharts.length+' gráficos seleccionados y las notas del analista.</p></div>',800)}
 function manage(){
-  const rows=(state.evals||[]).filter(e=>{
-    const turn=Number(e.turn);
-    if(!turn)return false;
-    const person=(state.people||[]).find(p=>p.id===e.person)||(state.available||[]).find(p=>p.id===e.person);
-    if(!person)return false;
-    const last=Number(person.sampleTurn)||0;
-    // El Asegurador corrige directamente el último turno evaluado y el inmediatamente anterior.
-    // Solo las evaluaciones reales más antiguas pueden requerir habilitación del Analista.
-    return turn<last-1;
-  }).sort((a,b)=>(Number(b.year)||Number(state.currentYear)||0)-(Number(a.year)||Number(state.currentYear)||0)||(Number(b.week)||Number(state.currentWeek)||0)-(Number(a.week)||Number(state.currentWeek)||0)||Number(b.turn)-Number(a.turn));
-
-  const cards=rows.map(e=>{
-    const person=(state.people||[]).find(p=>p.id===e.person)||(state.available||[]).find(p=>p.id===e.person);
-    const week=Number(e.week)||Number(state.currentWeek)||'—';
-    const year=Number(e.year)||Number(state.currentYear)||'';
-    return `<article class="card"><div class="row between wrap"><div><b>${person?person.name:'Sembrador'}</b><div class="muted small">Semana ${week}${year?' · '+year:''} · Turno ${Number(e.turn)}</div></div><button class="btn primary small" onclick="enableOldEvaluation('${e.id}')">Habilitar</button></div></article>`;
-  }).join('');
-
-  app.innerHTML=layout(`<section style="max-width:760px;margin:0 auto">${cards||'<div class="card muted">No hay evaluaciones disponibles para habilitar.</div>'}</section>`,'gestion');
+  app.innerHTML=layout('<section style="max-width:760px;margin:0 auto"><div class="card muted">Cargando evaluaciones sincronizadas...</div></section>','gestion');
+  loadAzureAuthorizationsView();
+}
+async function loadAzureAuthorizationsView(){
+  try{
+    if(!window.SiembraApi)throw new Error('API no disponible');
+    const week=await SiembraApi.getLatestWeek();
+    const weekId=Number(week.IdSemana)||0;
+    if(!weekId)throw new Error('Semana Azure no disponible');
+    const operational=await SiembraApi.getOperationalState(weekId);
+    const rows=Array.isArray(operational)?operational:[];
+    const byParticipation=new Map();
+    rows.forEach(r=>{
+      const pid=Number(r.IdParticipacion);
+      if(!byParticipation.has(pid))byParticipation.set(pid,[]);
+      byParticipation.get(pid).push(r);
+    });
+    const cards=[];
+    for(const participantRows of byParticipation.values()){
+      const first=participantRows[0]||{};
+      const evaluated=participantRows.filter(r=>r.Tipo==='EVALUACION'&&r.IdEvaluacion&&Number(r.NumeroTurno)>0);
+      const turns=[...new Set(evaluated.map(r=>Number(r.NumeroTurno)))].sort((a,b)=>b-a);
+      const direct=new Set(turns.slice(0,2));
+      for(const turn of turns){
+        if(direct.has(turn))continue;
+        const row=evaluated.find(r=>Number(r.NumeroTurno)===turn);
+        cards.push({resolutionId:Number(row.IdResolucion),personId:String(first.SembradorCorporativoId||''),turn});
+      }
+    }
+    cards.sort((a,b)=>b.turn-a.turn||a.personId.localeCompare(b.personId));
+    window.__azureAuthorizationRows=cards;
+    const html=cards.map((e,i)=>`<article class="card"><div class="row between wrap"><div><b>${e.personId||'Sembrador'}</b><div class="muted small">Semana ${week.NumeroSemana} · ${week.AnioEvaluacion} · Turno ${e.turn}</div></div><button class="btn primary small" onclick="enableAzureEvaluation(${i})">Habilitar</button></div></article>`).join('');
+    app.innerHTML=layout(`<section style="max-width:760px;margin:0 auto">${html||'<div class="card muted">No hay evaluaciones disponibles para habilitar.</div>'}</section>`,'gestion');
+  }catch(error){
+    console.error('No fue posible cargar Autorizaciones desde Azure.',error);
+    app.innerHTML=layout('<section style="max-width:760px;margin:0 auto"><div class="card muted">No se pudieron cargar las autorizaciones. Verifique la conexión a Internet.</div></section>','gestion');
+  }
+}
+window.enableAzureEvaluation=async function(index){
+  const row=(window.__azureAuthorizationRows||[])[Number(index)];
+  if(!row)return toast('Evaluación no encontrada');
+  try{
+    await SiembraApi.authorizeCorrection(row.resolutionId,{solicitadaPor:'asegurador-prueba',aprobadaPor:'analista-prueba'});
+    toast('Evaluación habilitada y sincronizada con Azure');
+    loadAzureAuthorizationsView();
+  }catch(error){
+    console.error('No fue posible habilitar la evaluación en Azure.',error);
+    toast('No se pudo habilitar la evaluación. Verifique la conexión a Internet.');
+  }
 }
 
 window.enableOldEvaluation=async function(id){
