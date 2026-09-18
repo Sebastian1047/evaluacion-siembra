@@ -107,7 +107,7 @@ async function loadAzureAuthorizationsView(){
     ]);
     const rows=Array.isArray(operational)?operational:[];
     const unavailableResolutions=new Set((Array.isArray(authorizations)?authorizations:[])
-      .filter(a=>a.Estado==='AUTORIZADA'||a.Estado==='UTILIZADA')
+      .filter(a=>a.Estado==='AUTORIZADA')
       .map(a=>Number(a.IdResolucion)));
     const byParticipation=new Map();
     rows.forEach(r=>{
