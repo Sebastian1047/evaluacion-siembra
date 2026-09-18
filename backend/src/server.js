@@ -105,6 +105,27 @@ ORDER BY IdAutorizacion DESC`);
   }catch(e){try{await tx.rollback();}catch{}throw e;}
 }catch(e){next(e);}});
 
+app.put('/api/resoluciones/:id/correccion',async(req,res,next)=>{const pool=await getPool();const tx=new sql.Transaction(pool);try{
+  await tx.begin();
+  const {incumplimientos=[],usuarioCorporativoId}=req.body||{};
+  if(!usuarioCorporativoId)return res.status(400).json({error:'usuarioCorporativoId es obligatorio'});
+  const target=await new sql.Request(tx).input('rid',sql.BigInt,req.params.id).query(`
+SELECT r.IdResolucion,r.Tipo,e.IdEvaluacion
+FROM dbo.ResolucionTurno r JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+WHERE r.IdResolucion=@rid`);
+  const row=target.recordset[0];if(!row){await tx.rollback();return res.status(404).json({error:'Evaluación no encontrada'});}
+  const auth=await new sql.Request(tx).input('rid2',sql.BigInt,req.params.id).query(`
+SELECT TOP(1) IdAutorizacion FROM dbo.AutorizacionCorreccion
+WHERE IdResolucion=@rid2 AND Estado='AUTORIZADA' AND UtilizadaEn IS NULL AND (ExpiraEn IS NULL OR ExpiraEn>SYSUTCDATETIME())
+ORDER BY IdAutorizacion DESC`);
+  if(!auth.recordset[0]){await tx.rollback();return res.status(403).json({error:'La evaluación no tiene una autorización vigente'});}
+  const before=await new sql.Request(tx).input('eid0',sql.BigInt,row.IdEvaluacion).query('SELECT IdItem FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid0 ORDER BY IdItem');
+  await new sql.Request(tx).input('eid1',sql.BigInt,row.IdEvaluacion).query('DELETE FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid1');
+  for(const itemId of [...new Set(incumplimientos.map(Number).filter(Number.isInteger))]) await new sql.Request(tx).input('eid2',sql.BigInt,row.IdEvaluacion).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid2,@iid)');
+  await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
+  await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0].IdAutorizacion});
+}catch(e){try{await tx.rollback();}catch{}next(e);}});
+
 app.get('/api/reportes/conformidad/:semanaId',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('sem',sql.Int,req.params.semanaId).query('EXEC dbo.sp_ConformidadIndividual @IdSemana=@sem');res.json(r.recordset);}catch(e){next(e);}});
 app.use((err,_req,res,_next)=>{console.error(err);res.status(500).json({error:'Error interno',detail:process.env.NODE_ENV==='production'?undefined:err.message});});
 const port=Number(process.env.PORT||3000);
