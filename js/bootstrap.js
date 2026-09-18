@@ -13,7 +13,7 @@
     'js/historial-analista.js',
     'js/item-review-quick.js?v=20260910-1',
     'js/weekly-sample-closure.js?v=20260911-1',
-    'js/group-week-close.js?v=20260918-1',
+    'js/group-week-close.js?v=20260918-2',
     'js/person-sample-turns.js?v=20260917-5',
     'js/late-entry-turn-edit.js?v=20260917-3',
     'js/noncompliance-x.js?v=20260915-1',
