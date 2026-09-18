@@ -18,6 +18,20 @@ app.get('/api/semanas/ultima', async(_req,res,next)=>{try{const p=await getPool(
 app.get('/api/semanas/:anio(\\d+)/:numero(\\d+)', async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,req.params.anio).input('numero',sql.TinyInt,req.params.numero).query('SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero');if(!r.recordset[0])return res.status(404).json({error:'Semana no encontrada'});res.json(r.recordset[0]);}catch(e){next(e);}});
 app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,inicio,fin}=req.body;const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,anio).input('numero',sql.TinyInt,numero).input('inicio',sql.Date,inicio).input('fin',sql.Date,fin).query(`IF NOT EXISTS(SELECT 1 FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero) INSERT dbo.SemanaEvaluacion(AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado) VALUES(@anio,@numero,@inicio,@fin,'ABIERTA'); SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero;`);res.status(201).json(r.recordset[0]);}catch(e){next(e);}});
 app.get('/api/semanas/:semanaId/participantes',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('id',sql.Int,req.params.semanaId).query('SELECT * FROM dbo.ParticipacionSemanal WHERE IdSemana=@id ORDER BY IdParticipacion');res.json(r.recordset);}catch(e){next(e);}});
+app.patch('/api/semanas/:semanaId/cerrar',async(req,res,next)=>{try{
+  const p=await getPool();
+  const r=await p.request().input('id',sql.Int,req.params.semanaId).query(`
+UPDATE dbo.SemanaEvaluacion
+SET Estado='CERRADA'
+OUTPUT INSERTED.*
+WHERE IdSemana=@id AND Estado='ABIERTA';`);
+  if(r.recordset[0])return res.json(r.recordset[0]);
+  const existing=await p.request().input('id2',sql.Int,req.params.semanaId).query('SELECT * FROM dbo.SemanaEvaluacion WHERE IdSemana=@id2');
+  if(!existing.recordset[0])return res.status(404).json({error:'Semana no encontrada'});
+  if(existing.recordset[0].Estado==='CERRADA')return res.json(existing.recordset[0]);
+  return res.status(409).json({error:'La semana no está en estado ABIERTA'});
+}catch(e){next(e);}});
+
 app.get('/api/semanas/:semanaId/estado-operativo',async(req,res,next)=>{try{const p=await getPool();await ensureParticipationIntervals(p);const r=await p.request().input('id',sql.Int,req.params.semanaId).query(`
 SELECT p.IdParticipacion,p.SembradorCorporativoId,p.TurnoInicio,p.Estado,
   (SELECT MAX(t.TurnoInicio) FROM dbo.TramoParticipacion t WHERE t.IdParticipacion=p.IdParticipacion) AS UltimoTurnoIncorporacion,
