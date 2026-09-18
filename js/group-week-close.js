@@ -50,11 +50,25 @@ function askCloseGroupWeek(){
   }
   modal(`<h3>¿Está seguro que quiere cerrar la Semana ${state.currentWeek}?</h3><p>Todos los sembradores están nivelados y han completado los <b>${goal} turnos de muestra</b>.</p><p>Si cierra la semana, podrá <b>ver la información</b>, pero no podrá modificarla.</p><div class="card" style="margin:12px 0"><b>Correcciones después del cierre</b><p class="muted" style="margin-bottom:0">Si necesita modificar algo, debe comunicarse con el <b>Analista</b> para que le habilite temporalmente la modificación. Esto solo será posible <b>antes de crear la nueva semana</b>. Una vez creada la siguiente semana, ni el Analista podrá habilitar modificaciones sobre esta semana.</p></div><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmCloseGroupWeek()">Cerrar semana</button></div>`);
 }
-function confirmCloseGroupWeek(){
+async function confirmCloseGroupWeek(){
   let unequal=unequalSampleTurns();if(unequal)return showUnequalTurns(unequal);
   if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
+  if(!window.SiembraApi||typeof SiembraApi.closeWeek!=='function')return toast('No se pudo conectar con el servicio de cierre');
+  let weekId=Number(state.currentAzureWeekId)||0;
+  try{
+    if(!weekId){
+      const week=await SiembraApi.getWeek(state.currentYear||2026,state.currentWeek);
+      weekId=Number(week.IdSemana)||0;
+    }
+    if(!weekId)throw new Error('Semana Azure no identificada');
+    await SiembraApi.closeWeek(weekId);
+  }catch(error){
+    console.error('No fue posible cerrar la semana en Azure.',error);
+    return toast('No se pudo cerrar la semana. Mantenga la conexión a Internet e inténtelo nuevamente.');
+  }
+  state.currentAzureWeekId=weekId;
   state.closedGroupWeeks['w'+state.currentWeek]={closed:true,closedAt:new Date().toISOString(),editEnabled:false,permanentlyLocked:false};
-  save();closeModal();state.view='grupo';render();toast('Semana '+state.currentWeek+' cerrada · modo solo lectura');
+  save();closeModal();state.view='grupo';render();toast('Semana '+state.currentWeek+' cerrada y sincronizada con Azure');
 }
 // Al crear una nueva semana, la anterior queda bloqueada definitivamente.
 if(typeof createNextWeek==='function'){
