@@ -140,8 +140,16 @@ WHERE IdResolucion=@rid2 AND Estado='AUTORIZADA' AND UtilizadaEn IS NULL AND (Ex
 ORDER BY IdAutorizacion DESC`);
   if(!auth.recordset[0]){await tx.rollback();return res.status(403).json({error:'La evaluación no tiene una autorización vigente'});}
   const before=await new sql.Request(tx).input('eid0',sql.BigInt,row.IdEvaluacion).query('SELECT IdItem FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid0 ORDER BY IdItem');
+  const beforeIds=before.recordset.map(x=>Number(x.IdItem)).filter(Number.isInteger);
+  const afterIds=[...new Set(incumplimientos.map(Number).filter(Number.isInteger))];
   await new sql.Request(tx).input('eid1',sql.BigInt,row.IdEvaluacion).query('DELETE FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid1');
-  for(const itemId of [...new Set(incumplimientos.map(Number).filter(Number.isInteger))]) await new sql.Request(tx).input('eid2',sql.BigInt,row.IdEvaluacion).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid2,@iid)');
+  for(const itemId of afterIds) await new sql.Request(tx).input('eid2',sql.BigInt,row.IdEvaluacion).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid2,@iid)');
+  const auditPayload=JSON.stringify({antes:beforeIds,despues:afterIds});
+  await new sql.Request(tx)
+    .input('aidAudit',sql.BigInt,auth.recordset[0].IdAutorizacion)
+    .input('uidAudit',sql.NVarChar(100),usuarioCorporativoId)
+    .input('detalleAudit',sql.NVarChar(sql.MAX),auditPayload)
+    .query(`INSERT dbo.AuditoriaCorreccion(IdAutorizacion,UsuarioCorporativoId,Detalle) VALUES(@aidAudit,@uidAudit,@detalleAudit)`);
   await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
   await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0].IdAutorizacion});
 }catch(e){try{await tx.rollback();}catch{}next(e);}});
