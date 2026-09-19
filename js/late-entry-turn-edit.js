@@ -104,7 +104,9 @@
     if(!evaluation)return modal(`<h3>No se puede corregir</h3><p>El turno ${turn} no tiene una evaluación real registrada.</p><button class="btn primary block" onclick="showPreviousTurns()">Entendido</button>`);
     const authorized=hasAzureCorrectionAuthorization(evaluation);
     if((correctionWeekIsClosed()||!canAssurerEditTurn(p,turn))&&!authorized)return requestTurnEdit(turn);
-    if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly())return closeModal(),closedWeekMessage();
+    // En una semana cerrada, la autorización Azure es precisamente la excepción temporal
+    // al modo solo lectura. Sin autorización, la validación anterior ya bloqueó la corrección.
+    if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly()&&!authorized)return closeModal(),closedWeekMessage();
     ensureTurnEvents();
     const failures=[...document.querySelectorAll('[name=edit-turn-crit]:checked')].map(x=>x.value);
     if(authorized){
