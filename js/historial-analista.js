@@ -18,8 +18,8 @@ function formatAuditDate(v){if(!v)return '-';try{return new Date(v).toLocaleStri
 async function historialModificacionesAnalista(){
   app.innerHTML=layout(`<button class="back" onclick="go('historial')">← Volver a Historial</button><section class="card hero"><h2>Modificaciones a semanas completas</h2><p class="muted">Registro de auditoría de correcciones autorizadas sobre información ya completada.</p></section><section class="card muted">Cargando auditoría desde Azure…</section>`,'historial');
   try{
-    const allRows=await SiembraApi.getCorrectionAudit();
-    const currentWeek=Number(state.currentWeek); const currentYear=Number(state.currentYear||new Date().getFullYear());
+    const [allRows,latestWeek]=await Promise.all([SiembraApi.getCorrectionAudit(),SiembraApi.getLatestWeek()]);
+    const currentWeek=Number(latestWeek.NumeroSemana); const currentYear=Number(latestWeek.AnioEvaluacion);
     const previousWeek=currentWeek>1?currentWeek-1:53; const previousYear=currentWeek>1?currentYear:currentYear-1;
     const rows=(allRows||[]).filter(a=>(Number(a.NumeroSemana)===currentWeek&&Number(a.AnioEvaluacion)===currentYear)||(Number(a.NumeroSemana)===previousWeek&&Number(a.AnioEvaluacion)===previousYear));
     const cards=(rows||[]).map(a=>{let antes=[],despues=[];try{antes=JSON.parse(a.EstadoAntes||'[]')}catch{}try{despues=JSON.parse(a.EstadoDespues||'[]')}catch{}return `<article class="card"><div class="row between wrap"><div><b>Semana ${a.NumeroSemana} · ${a.AnioEvaluacion} · Turno ${a.NumeroTurno}</b><div class="muted small">Sembrador: ${a.SembradorCorporativoId} · Usuario: ${a.UsuarioCorporativoId} · ${formatAuditDate(a.CorregidoEn)}</div></div><span class="badge">Corrección registrada</span></div><p class="small" style="margin-bottom:0"><b>Antes:</b> ${antes.length?antes.map(nombreCriterio).join(', '):'Todos los ítems cumplen'}<br><b>Después:</b> ${despues.length?despues.map(nombreCriterio).join(', '):'Todos los ítems cumplen'}</p></article>`}).join('');
