@@ -144,12 +144,14 @@ ORDER BY IdAutorizacion DESC`);
   const afterIds=[...new Set(incumplimientos.map(Number).filter(Number.isInteger))];
   await new sql.Request(tx).input('eid1',sql.BigInt,row.IdEvaluacion).query('DELETE FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid1');
   for(const itemId of afterIds) await new sql.Request(tx).input('eid2',sql.BigInt,row.IdEvaluacion).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid2,@iid)');
-  const auditPayload=JSON.stringify({antes:beforeIds,despues:afterIds});
   await new sql.Request(tx)
-    .input('aidAudit',sql.BigInt,auth.recordset[0].IdAutorizacion)
+    .input('eidAudit',sql.BigInt,row.IdEvaluacion)
     .input('uidAudit',sql.NVarChar(100),usuarioCorporativoId)
-    .input('detalleAudit',sql.NVarChar(sql.MAX),auditPayload)
-    .query(`INSERT dbo.AuditoriaCorreccion(IdAutorizacion,UsuarioCorporativoId,Detalle) VALUES(@aidAudit,@uidAudit,@detalleAudit)`);
+    .input('antesAudit',sql.NVarChar(sql.MAX),JSON.stringify(beforeIds))
+    .input('despuesAudit',sql.NVarChar(sql.MAX),JSON.stringify(afterIds))
+    .input('aidAudit',sql.BigInt,auth.recordset[0].IdAutorizacion)
+    .query(`INSERT dbo.AuditoriaCorreccion(IdEvaluacion,UsuarioCorporativoId,EstadoAntes,EstadoDespues,IdAutorizacion)
+            VALUES(@eidAudit,@uidAudit,@antesAudit,@despuesAudit,@aidAudit)`);
   await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
   await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0].IdAutorizacion});
 }catch(e){try{await tx.rollback();}catch{}next(e);}});
