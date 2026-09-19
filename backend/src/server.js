@@ -80,6 +80,21 @@ app.patch('/api/participaciones/:id/estado',async(req,res,next)=>{try{
   }catch(e){try{await tx.rollback();}catch{}throw e;}
 }catch(e){next(e);}});
 app.post('/api/participaciones/:id/turnos/:turno/resolver',async(req,res,next)=>{const pool=await getPool();const tx=new sql.Transaction(pool);try{await tx.begin();const {tipo,incumplimientos=[],usuarioCorporativoId}=req.body;const request=new sql.Request(tx);const rr=await request.input('pid',sql.Int,req.params.id).input('turno',sql.SmallInt,req.params.turno).input('tipo',sql.VarChar(20),tipo).input('uid',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.ResolucionTurno(IdParticipacion,NumeroTurno,Tipo,UsuarioCorporativoId) OUTPUT INSERTED.IdResolucion VALUES(@pid,@turno,@tipo,@uid)`);const idResolucion=rr.recordset[0].IdResolucion;if(tipo==='EVALUACION'){const er=await new sql.Request(tx).input('rid',sql.BigInt,idResolucion).input('uid2',sql.NVarChar(100),usuarioCorporativoId).query(`INSERT dbo.Evaluacion(IdResolucion,UsuarioCorporativoId) OUTPUT INSERTED.IdEvaluacion VALUES(@rid,@uid2)`);const eid=er.recordset[0].IdEvaluacion;for(const itemId of [...new Set(incumplimientos)]) await new sql.Request(tx).input('eid',sql.BigInt,eid).input('iid',sql.Int,itemId).query('INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid,@iid)');}await tx.commit();res.status(201).json({ok:true,idResolucion});}catch(e){try{await tx.rollback();}catch{}next(e);}});
+// Auditoría real de correcciones para el Historial del Analista.
+app.get('/api/auditoria-correcciones',async(req,res,next)=>{try{
+  const pool=await getPool();
+  const q=await pool.request().query(`
+    SELECT ac.IdAuditoria,ac.IdEvaluacion,ac.UsuarioCorporativoId,ac.CorregidoEn,ac.EstadoAntes,ac.EstadoDespues,ac.IdAutorizacion,
+           rt.NumeroTurno,ps.SembradorCorporativoId,se.AnioEvaluacion,se.NumeroSemana
+    FROM dbo.AuditoriaCorreccion ac
+    JOIN dbo.Evaluacion e ON e.IdEvaluacion=ac.IdEvaluacion
+    JOIN dbo.ResolucionTurno rt ON rt.IdResolucion=e.IdResolucion
+    JOIN dbo.ParticipacionSemanal ps ON ps.IdParticipacion=rt.IdParticipacion
+    JOIN dbo.SemanaEvaluacion se ON se.IdSemana=ps.IdSemana
+    ORDER BY ac.CorregidoEn DESC,ac.IdAuditoria DESC`);
+  res.json(q.recordset);
+}catch(e){next(e)}});
+
 // Autorizaciones de corrección persistidas en Azure SQL.
 // Se consultan por semana para que Analista y Asegurador compartan el mismo estado.
 app.get('/api/semanas/:semanaId/autorizaciones-correccion',async(req,res,next)=>{try{
