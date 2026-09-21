@@ -3,7 +3,7 @@
   await SiembraApi.loadCriteriaIntoSeed();
 
   const scripts = [
-    'js/app.js?v=20260921-mailto-flow',
+    'js/app.js?v=20260921-gmail-compose',
     // Instalar inmediatamente la interfaz vigente del Asegurador. Así el HTML
     // histórico que todavía existe en app.js no permanece visible mientras
     // terminan de cargar las integraciones posteriores.
