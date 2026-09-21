@@ -8,8 +8,22 @@
   function datesForWeek(year,week){const start=firstSunday(year);start.setDate(start.getDate()+(week-1)*7);const end=new Date(start);end.setDate(end.getDate()+6);return {start,end}}
 
   window.newWeekModal=function(){
-    const y=Number(state.currentYear)||new Date().getFullYear();
-    modal(`<h3>Crear semana de prueba</h3><p class="muted">Modo de pruebas: el Asegurador puede abrir cualquier semana sin esperar a la fecha del calendario.</p><label>Año</label><input id="testWeekYear" class="input" type="number" min="2000" max="2200" value="${y}"><label style="display:block;margin-top:10px">Número de semana</label><input id="testWeekNumber" class="input" type="number" min="1" max="60" value="${Number(state.currentWeek)||1}"><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="activateTestWeek()">Crear / usar semana</button></div>`);
+    const currentYear=Number(state.currentYear)||new Date().getFullYear();
+    const currentWeek=Number(state.currentWeek)||1;
+    if(typeof currentWeekClosedForCreation==='function'&&!currentWeekClosedForCreation()){
+      return modal(`<h3>Primero debe cerrar la Semana ${currentWeek}</h3><p>No puede crear la siguiente semana mientras la actual permanezca abierta.</p><button class="btn primary block" onclick="closeModal()">Entendido</button>`);
+    }
+    // En el modo de pruebas también se respeta estrictamente el consecutivo.
+    // No se permite escribir ni saltar manualmente números de semana.
+    let nextYear=currentYear;
+    let nextWeek=currentWeek+1;
+    const nextYearFirstSunday=firstSunday(currentYear+1);
+    const currentYearLastSunday=new Date(nextYearFirstSunday);
+    currentYearLastSunday.setDate(currentYearLastSunday.getDate()-7);
+    const lastWeekOfYear=Math.floor((currentYearLastSunday-firstSunday(currentYear))/(7*86400000))+1;
+    if(nextWeek>lastWeekOfYear){nextYear=currentYear+1;nextWeek=1}
+    const d=datesForWeek(nextYear,nextWeek);
+    modal(`<h3>Crear Semana ${nextWeek} de ${nextYear}</h3><p>La Semana ${currentWeek} ya está terminada.</p><p>La siguiente semana disponible es <b>Semana ${nextWeek} de ${nextYear}</b> (${fmt(d.start)} al ${fmt(d.end)}).</p><p class="muted">El consecutivo es automático y no puede adelantarse ni saltarse semanas.</p><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="activateTestWeek(${nextYear},${nextWeek})">Crear Semana ${nextWeek}</button></div>`);
   };
 
   // En modo de pruebas, "Marcar semana no evaluada" debe actuar sobre la semana
