@@ -25,7 +25,7 @@
     'js/group-pagination.js?v=20260911-1',
     'js/week-lifecycle.js?v=20260912-1',
     'js/calendar-week-control.js?v=20260916-1',
-    'js/analyst-conformity-calculations.js?v=20260921-report-pdf',
+    'js/analyst-conformity-calculations.js?v=20260921-week-filters',
     'js/test-mode-week-control.js?v=20260918-5',
     'js/azure-participant-sync.js?v=20260917-2',
     'js/azure-participant-state.js?v=20260917-1',
