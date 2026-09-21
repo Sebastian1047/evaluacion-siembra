@@ -128,9 +128,26 @@
         console.error('No fue posible recargar el catálogo de ítems de Azure.',error);
       }
     }
-    const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
+    // Compatibilidad con evaluaciones locales antiguas: algunas guardaron el nombre
+    // visible del criterio en lugar de su código (c1, c2...). Resolver también por nombre.
+    let azureItems=[];
+    try{azureItems=await SiembraApi.getItems();}catch(error){console.error('No fue posible consultar los ítems para la corrección.',error);}
+    const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    const itemIds=failures.map(value=>{
+      const direct=Number((window.SiembraAzureItemIds||{})[String(value)]);
+      if(Number.isInteger(direct)&&direct>0)return direct;
+      const localCriterion=(seed.criteria||[]).find(x=>String(x[0])===String(value)||normalize(x[1])===normalize(value));
+      const wantedCode=localCriterion?String(localCriterion[0]):String(value);
+      const wantedName=localCriterion?String(localCriterion[1]):String(value);
+      const item=(Array.isArray(azureItems)?azureItems:[]).find(x=>
+        String(x.codigo??x.Codigo)===wantedCode||
+        normalize(x.nombre??x.Nombre)===normalize(wantedName)||
+        normalize(x.nombre??x.Nombre)===normalize(value)
+      );
+      return Number(item&&(item.id??item.IdItem));
+    }).filter(id=>Number.isInteger(id)&&id>0);
     if(itemIds.length!==failures.length){
-      console.error('Criterios sin IdItem Azure',failures.filter(code=>!Number((window.SiembraAzureItemIds||{})[String(code)])),window.SiembraAzureItemIds);
+      console.error('Criterios sin IdItem Azure',{failures,seedCriteria:seed.criteria,azureItems});
       return toast('No se pudieron identificar todos los ítems en Azure');
     }
     if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
