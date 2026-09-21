@@ -26,7 +26,29 @@ function group(){let cards=state.people.map(p=>personCard(p)).join('');app.inner
 function newWeekModal(){let next=state.currentWeek+1;modal(`<h3>Crear Semana ${next}</h3><p>Se cerrará la Semana ${state.currentWeek} para la demostración y se creará un grupo nuevo vacío.</p><p class="muted">Después podrá agregar los sembradores que serán evaluados en la nueva semana.</p><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="createNextWeek()">Crear Semana ${next}</button></div>`)}
 function createNextWeek(){state.currentWeek++;state.people=[];state.evals=[];state.pending=0;state.selectedPerson=null;state.available=seed.people.concat(seed.available).map(p=>({id:p.id+'w'+state.currentWeek,name:p.name,doc:p.doc}));save();closeModal();render();toast('Semana '+state.currentWeek+' creada. Agregue los sembradores del grupo')}
 function personCard(p){let pc=Math.min(100,Math.round(p.done/p.required*100));return `<article class="card person" data-name="${p.name.toLowerCase()}" onclick="openPerson('${p.id}')"><div class="row between"><b>${p.name}</b><span class="badge ${pc<100?'warn':''}">${pc===100?'Completado':'En proceso'}</span></div><div class="row between"><span>${p.done} / ${p.required} evaluaciones</span><b>${pc}%</b></div><div class="progress"><span style="width:${pc}%"></span></div></article>`}
-function filterPeople(q){document.querySelectorAll('.person').forEach(e=>e.style.display=e.dataset.name.includes(q.toLowerCase())?'':'none')}
+function filterPeople(q){
+  q=(q||'').trim().toLowerCase();
+  const box=document.querySelector('#people');
+  if(!box)return;
+  const current=state.people.filter(p=>p.name.toLowerCase().includes(q)||String(p.doc||'').toLowerCase().includes(q));
+  if(current.length){
+    box.innerHTML=current.map(p=>personCard(p)).join('');
+    return;
+  }
+  if(!q){
+    box.innerHTML=state.people.map(p=>personCard(p)).join('')||'<div class="card muted">Todavía no hay sembradores en el grupo de esta semana. Use <b>+ Agregar</b> para incorporarlos.</div>';
+    return;
+  }
+  const available=(state.available||[]).filter(p=>p.name.toLowerCase().includes(q)||String(p.doc||'').toLowerCase().includes(q));
+  box.innerHTML=available.map(p=>`<article class="card available"><div class="row between"><div><b>${p.name}</b><div class="muted small">ID ${p.doc} · Disponible para agregar</div></div><button class="btn secondary" onclick="addWorkerFromGroupSearch('${p.id}')">+ Agregar</button></div></article>`).join('')||'<div class="card muted">No se encontraron sembradores con esa búsqueda.</div>';
+}
+function addWorkerFromGroupSearch(id){
+  let i=(state.available||[]).findIndex(x=>x.id===id);
+  if(i<0)return toast('El sembrador ya no está disponible');
+  let p=state.available.splice(i,1)[0];
+  state.people.push({...p,required:30,done:0});
+  save();render();toast(p.name+' agregado al grupo');
+}
 function openPerson(id){state.selectedPerson=id;state.view='seguimiento';render()}
 function current(){return state.people.find(p=>p.id===state.selectedPerson)}
 function follow(){let p=current();let pc=Math.round(p.done/p.required*100);let es=state.evals.filter(e=>e.person===p.id).slice().reverse();let demo=es.length?es.map((e,i)=>`<article class="card eval" onclick="openEval('${e.id}')"><div class="row between"><b>Evaluación ${p.done-i}</b><span class="badge ${e.synced?'':'warn'}">${e.synced?'Sincronizada':'Pendiente'}</span></div><p>${e.failures.length} incumplimiento(s) · Resultado demostrativo ${e.score}%</p></article>`).join(''):`<div class="card muted">En este prototipo no se cargaron detalles de las ${p.done} evaluaciones previas. Registra una nueva para probar el flujo.</div>`;app.innerHTML=layout(`<button class="back" onclick="go('grupo')">← Volver al grupo</button><section class="card hero"><h2>${p.name}</h2><p class="muted">ID ${p.doc}</p><div class="row between"><b>Avance del seguimiento</b><strong>${p.done} / ${p.required}</strong></div><div class="progress"><span style="width:${pc}%"></span></div><p><b>${pc}% completado</b> <span class="muted">(no es desempeño)</span></p><button class="btn primary block" onclick="go('nueva')">+ Nueva evaluación</button><button class="btn ghost block" style="margin-top:8px" onclick="adjustRequired()">Ajustar evaluaciones requeridas</button></section><h3>Evaluaciones registradas en la demo</h3>${demo}`,state.role==='analista'?'gestion':'grupo')}
