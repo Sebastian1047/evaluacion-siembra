@@ -27,7 +27,7 @@
     'js/calendar-week-control.js?v=20260916-1',
     'js/analyst-conformity-calculations.js?v=20260921-real-formulas',
     'js/test-mode-week-control.js?v=20260918-5',
-    'js/azure-participant-sync.js?v=20260917-2',
+    'js/azure-participant-sync.js?v=20260921-reuse-existing',
     'js/azure-participant-state.js?v=20260917-1',
     'js/azure-evaluation-sync.js?v=20260916-1'
   ];
