@@ -65,7 +65,6 @@ async function confirmOmitCurrentSample(){
     });
     p.sampleTurn=info.next;
     refreshEffectiveEvaluationTarget(p);
-    state.weekOperationalSampleTurn=currentGroupSampleTurn();
     state.sampleTurnOmissions.push({
       week:state.currentWeek,
       year:state.currentYear,
@@ -85,7 +84,14 @@ async function confirmOmitCurrentSample(){
 const goBeforeSampleTurns=go;
 go=function(v){
   if(v==='nueva'&&state.role==='monitor'){
-    let p=current();if(p){let info=canAdvancePerson(p);if(!info.ok){showTurnBlock(p,info);return}}
+    let p=current();
+    if(p){
+      const turn=currentGroupSampleTurn();
+      if(Number(p.sampleTurn||0)>=turn){
+        return modal(`<h3>Turno ${turn} ya evaluado</h3><p><b>${p.name}</b> ya tiene resuelto el turno de muestra ${turn}.</p><p>Para realizar otra evaluación, primero vuelva al grupo y pulse <b>Pasar al siguiente turno</b>.</p><button class="btn primary block" onclick="closeModal();go('grupo')">Volver al grupo</button>`);
+      }
+      let info=canAdvancePerson(p);if(!info.ok){showTurnBlock(p,info);return}
+    }
   }
   return goBeforeSampleTurns(v);
 };
@@ -95,7 +101,7 @@ commitEval=function(ids){
   let info=canAdvancePerson(p);if(!info.ok)return showTurnBlock(p,info);
   let beforeDone=p.done;
   commitEvalBeforeSampleTurns(ids);
-  if(p.done>beforeDone){p.sampleTurn=info.next;refreshEffectiveEvaluationTarget(p);state.weekOperationalSampleTurn=currentGroupSampleTurn();save()}
+  if(p.done>beforeDone){p.sampleTurn=info.next;refreshEffectiveEvaluationTarget(p);save()}
 };
 
 function advanceGroupTurn(){
