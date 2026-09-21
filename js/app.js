@@ -230,6 +230,39 @@ function reviewEmail(){
   const safe=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   modal(`<h3>Confirmar preparación del correo</h3><p class="muted">Revise la información. Al continuar se abrirá el correo del Analista con estos datos diligenciados.</p><p><b>Destinatarios</b><br>${recipients.map(safe).join('<br>')}</p><p><b>Asunto</b><br>${safe(subject)}</p><p><b>Archivo para adjuntar</b><br>${safe(reportPdfName())}</p><div class="row wrap"><button class="btn ghost" onclick="closeModal()">Volver a editar</button><button class="btn primary" onclick="openPreparedEmail()">Abrir correo</button></div>`);
 }
+async function downloadReportPdf(){
+  const report=document.querySelector('.report-sheet');
+  if(!report)return toast('Abra primero el Informe de conformidad');
+  if(!window.html2canvas||!window.jspdf)return toast('No fue posible cargar el generador de PDF');
+  toast('Generando PDF...');
+  try{
+    const canvas=await html2canvas(report,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight();
+    const margin=6,maxW=pageW-margin*2,maxH=pageH-margin*2;
+    const imgW=maxW,imgH=canvas.height*imgW/canvas.width;
+    const pageCanvas=document.createElement('canvas');
+    const ctx=pageCanvas.getContext('2d');
+    const pxPerMm=canvas.width/imgW;
+    const slicePx=Math.floor(maxH*pxPerMm);
+    let y=0,page=0;
+    while(y<canvas.height){
+      const h=Math.min(slicePx,canvas.height-y);
+      pageCanvas.width=canvas.width;pageCanvas.height=h;
+      ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+      ctx.drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+      if(page++)pdf.addPage('a4','landscape');
+      const sliceH=h/pxPerMm;
+      pdf.addImage(pageCanvas.toDataURL('image/jpeg',0.95),'JPEG',margin,margin,imgW,sliceH);
+      y+=h;
+    }
+    pdf.save(reportPdfName());
+    toast('PDF generado');
+  }catch(err){
+    console.error(err);toast('No fue posible generar el PDF');
+  }
+}
 function openPreparedEmail(){
   const recipients=[...state.defaultRecipients,...state.mailDraftRecipients].join(',');
   const subject=state.mailDraftSubject||'';
