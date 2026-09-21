@@ -114,6 +114,11 @@
     // La autorización sigue siendo únicamente una regla de permiso para abrir la
     // corrección; no debe decidir si el cambio queda auditado o no.
     if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
+    // El mapa de ítems puede haberse perdido si esta vista se restauró desde el estado
+    // local sin pasar nuevamente por el login. Recárguelo antes de rechazar la corrección.
+    if(failures.some(code=>!Number((window.SiembraAzureItemIds||{})[String(code)]))&&window.SiembraApi&&typeof SiembraApi.loadCriteriaIntoSeed==='function'){
+      await SiembraApi.loadCriteriaIntoSeed();
+    }
     const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
     if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
     if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
