@@ -162,8 +162,11 @@ app.put('/api/resoluciones/:id/correccion',async(req,res,next)=>{const pool=awai
   const {incumplimientos=[],usuarioCorporativoId}=req.body||{};
   if(!usuarioCorporativoId)return res.status(400).json({error:'usuarioCorporativoId es obligatorio'});
   const target=await new sql.Request(tx).input('rid',sql.BigInt,req.params.id).query(`
-SELECT r.IdResolucion,r.Tipo,e.IdEvaluacion
-FROM dbo.ResolucionTurno r JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+SELECT r.IdResolucion,r.Tipo,r.IdParticipacion,r.NumeroTurno,e.IdEvaluacion,s.Estado AS EstadoSemana
+FROM dbo.ResolucionTurno r
+JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion
+JOIN dbo.ParticipacionSemanal ps ON ps.IdParticipacion=r.IdParticipacion
+JOIN dbo.SemanaEvaluacion s ON s.IdSemana=ps.IdSemana
 WHERE r.IdResolucion=@rid`);
   const row=target.recordset[0];if(!row){await tx.rollback();return res.status(404).json({error:'Evaluación no encontrada'});}
   const auth=await new sql.Request(tx).input('rid2',sql.BigInt,req.params.id).query(`
@@ -185,7 +188,7 @@ ORDER BY IdAutorizacion DESC`);
     .query(`INSERT dbo.AuditoriaCorreccion(IdEvaluacion,UsuarioCorporativoId,EstadoAntes,EstadoDespues,IdAutorizacion)
             VALUES(@eidAudit,@uidAudit,@antesAudit,@despuesAudit,@aidAudit)`);
   if(auth.recordset[0])await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
-  await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0].IdAutorizacion});
+  await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0]?auth.recordset[0].IdAutorizacion:null});
 }catch(e){try{await tx.rollback();}catch{}next(e);}});
 
 app.get('/api/reportes/conformidad/:semanaId',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('sem',sql.Int,req.params.semanaId).query('EXEC dbo.sp_ConformidadIndividual @IdSemana=@sem');res.json(r.recordset);}catch(e){next(e);}});
