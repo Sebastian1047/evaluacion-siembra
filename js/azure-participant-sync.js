@@ -33,9 +33,24 @@
         save();render();return toast(candidate.name+' se reincorporó en el turno '+turnoOperativo);
       }
 
-      const participant=await SiembraApi.addParticipant(semanaId,{sembradorId:String(candidate.doc),turnoInicio:turnoOperativo});
-      localAddWorker(id);const added=state.people.find(p=>p.id===candidate.id);
-      if(added){added.azureParticipationId=participant.IdParticipacion;added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;added.ultimoTurnoIncorporacion=added.turnoInicio;added.sampleTurn=Math.max(0,added.turnoInicio-1);added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(Number(added.done)||0,30-added.sampleTurn+(Number(added.done)||0));state.weekOperationalSampleTurn=turnoOperativo;save();render();}
+      // Puede existir ya en Azure aunque el estado local del navegador lo muestre como disponible
+      // (por ejemplo, tras recargar una semana después de un cambio de caché). Reutilizamos esa
+      // participación en vez de intentar insertar un duplicado.
+      let participant;
+      const existing=typeof SiembraApi.getParticipants==='function'
+        ? (await SiembraApi.getParticipants(semanaId)).find(x=>String(x.SembradorCorporativoId)===String(candidate.doc))
+        : null;
+      if(existing){
+        participant=existing;
+        if(existing.Estado==='QUITADO_TEMPORALMENTE'){
+          if(typeof SiembraApi.changeParticipantState!=='function')throw new Error('API de reincorporación no disponible');
+          await SiembraApi.changeParticipantState(Number(existing.IdParticipacion),'EN_LA_SEMANA',turnoOperativo);
+        }
+      }else{
+        participant=await SiembraApi.addParticipant(semanaId,{sembradorId:String(candidate.doc),turnoInicio:turnoOperativo});
+      }
+      localAddWorker(id);const added=state.people.find(p=>String(p.doc)===String(candidate.doc));
+      if(added){added.azureParticipationId=participant.IdParticipacion;added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;added.ultimoTurnoIncorporacion=turnoOperativo;added.sampleTurn=Math.max(0,turnoOperativo-1);added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(Number(added.done)||0,30-added.sampleTurn+(Number(added.done)||0));state.weekOperationalSampleTurn=turnoOperativo;save();render();}
     }catch(error){console.error('No fue posible agregar/reincorporar el sembrador en Azure.',error);toast('No se pudo guardar el sembrador en Azure. El grupo no fue modificado.');}
   };
 })();
