@@ -109,17 +109,20 @@
     if(typeof groupWeekReadOnly==='function'&&groupWeekReadOnly()&&!authorized)return closeModal(),closedWeekMessage();
     ensureTurnEvents();
     const failures=[...document.querySelectorAll('[name=edit-turn-crit]:checked')].map(x=>x.value);
-    if(authorized){
-      if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
-      const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
-      if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
-      try{
-        await SiembraApi.saveAuthorizedCorrection(Number(evaluation.azureResolutionId),{incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
-        evaluation.azureCorrectionAuthorized=false;
-      }catch(error){
-        console.error('No fue posible guardar la corrección autorizada en Azure.',error);
-        return toast('No se pudo guardar la corrección. Mantenga la conexión a Internet e inténtelo nuevamente.');
-      }
+    // Toda corrección de una evaluación ya persistida debe pasar por Azure para
+    // dejar auditoría, independientemente de si necesitó autorización del Analista.
+    // La autorización sigue siendo únicamente una regla de permiso para abrir la
+    // corrección; no debe decidir si el cambio queda auditado o no.
+    if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
+    const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
+    if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
+    if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
+    try{
+      await SiembraApi.saveAuthorizedCorrection(Number(evaluation.azureResolutionId),{incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
+      if(authorized)evaluation.azureCorrectionAuthorized=false;
+    }catch(error){
+      console.error('No fue posible guardar la corrección en Azure.',error);
+      return toast('No se pudo guardar la corrección. Mantenga la conexión a Internet e inténtelo nuevamente.');
     }
     evaluation.failures=failures;
     evaluation.score=Math.max(0,100-failures.length*8);
