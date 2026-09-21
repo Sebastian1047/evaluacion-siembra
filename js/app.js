@@ -192,13 +192,67 @@ function personFailureHistory(){
   app.innerHTML=layout(`<button class="back" onclick="go('historial')">← Volver al historial</button><section class="card hero"><span class="badge warn">Historial de fallos</span><h2 style="margin:8px 0 4px">${p.name}</h2><p class="muted">${p.doc?'ID '+p.doc+' · ':''}${failures.length} fallo(s) registrados en la demostración</p></section><section class="card"><h3>Detalle de incumplimientos</h3><p class="muted">Cada fila indica el ítem que falló y el momento exacto del seguimiento en que se registró.</p><div class="table-scroll"><table class="failure-table"><thead><tr><th>Ítem incumplido</th><th>Semana</th><th>Muestra</th></tr></thead><tbody>${rows||'<tr><td colspan="3">Sin fallos registrados.</td></tr>'}</tbody></table></div></section>`, 'historial')
 }
 
-function openEmailReport(){state.view='correoInforme';save();render()}
-function connectMail(){state.mailConnected=true;save();render();toast('Cuenta conectada para la demostración')}
+function openEmailReport(){
+  state.view='correoInforme';
+  if(!Array.isArray(state.mailDraftRecipients))state.mailDraftRecipients=[];
+  save();render();
+}
+function connectMail(){
+  const account=$('#mailAccount')?.value.trim();
+  if(!account||!account.includes('@'))return toast('Escriba un correo válido');
+  state.mailAccount=account;
+  state.mailConnected=true;
+  save();render();
+  toast('Cuenta conectada para la demostración');
+}
 function disconnectMail(){state.mailConnected=false;save();render()}
-function emailReport(){let week=state.tableWeek||state.currentWeek;if(!state.mailConnected){app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver a la tabla</button><section class="card hero"><span class="badge">Envío seguro</span><h2 style="margin-top:8px">Enviar informe · Semana ${week}</h2><p class="muted">En la aplicación real se utilizará el inicio de sesión seguro del proveedor de correo. La aplicación no almacenará ni conocerá la contraseña.</p></section><section class="card mail-connect"><h3>Conectar cuenta de correo</h3><label class="label">Correo corporativo</label><input id="mailAccount" class="input" type="email" placeholder="nombre@empresa.com" value="analista@empresa.com"><p class="muted small">Prototipo: el botón siguiente simula la autorización externa (OAuth). No escriba una contraseña real.</p><button class="btn primary block" onclick="connectMail()">Conectar con correo corporativo</button></section>`,'analisis');return}
-let recipients=state.defaultRecipients.map((e,i)=>`<div class="recipient"><span>✉ ${e}</span><span class="badge">Predeterminado</span><button class="btn ghost small" onclick="removeDefaultRecipient(${i})">Quitar</button></div>`).join('');app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver a la tabla</button><section class="card hero"><div class="row between wrap"><div><span class="badge">Cuenta conectada</span><h2 style="margin:8px 0 4px">Enviar informe · Semana ${week}</h2><p class="muted">analista@empresa.com</p></div><button class="btn ghost small" onclick="disconnectMail()">Cambiar cuenta</button></div></section><section class="card"><h3>Destinatarios</h3><p class="muted">Los predeterminados aparecen automáticamente en cada envío.</p><div id="recipientList">${recipients}</div><div id="tempRecipients"></div><div class="recipient-add"><input id="newRecipient" class="input" type="email" placeholder="otro.correo@empresa.com"><button class="btn secondary" onclick="addRecipient(false)">Agregar</button></div><label class="save-default"><input id="saveDefault" type="checkbox"> Agregar a destinatarios predeterminados</label></section><section class="card"><label class="label">Asunto</label><input id="mailSubject" class="input" value="Resultados de conformidad de siembra - Semana ${week}"><label class="label">Cuerpo del correo</label><textarea id="mailBody" class="input mail-body">Buenos días,\n\nAdjunto se envía el informe de resultados de conformidad correspondiente a la Semana ${week}.\n\nCordialmente.</textarea><div class="attachment"><div class="pdf-icon">PDF</div><div><b>Resultados_Conformidad_Semana_${week}.pdf</b><small>Tabla semanal de conformidad · PDF generado por la aplicación</small></div></div><button class="btn primary block" onclick="sendDemoEmail()">Enviar correo</button></section>`,'analisis')}
-function addRecipient(){let inp=$('#newRecipient'),email=inp.value.trim();if(!email||!email.includes('@'))return toast('Escriba un correo válido');if($('#saveDefault').checked){if(!state.defaultRecipients.includes(email))state.defaultRecipients.push(email);save();render();toast('Agregado a predeterminados')}else{let box=$('#tempRecipients'),d=document.createElement('div');d.className='recipient temp';d.innerHTML=`<span>✉ ${email}</span><span class="badge warn">Solo este envío</span><button class="btn ghost small" onclick="this.parentElement.remove()">Quitar</button>`;box.appendChild(d);inp.value='';toast('Agregado al envío actual')}}
+function reportYear(){return Number(state.tableYear||state.currentYear||new Date().getFullYear())}
+function reportPdfName(){
+  const week=state.tableWeek||state.currentWeek;
+  return `Informe_Conformidad_Siembra_Semana_${week}_${reportYear()}.pdf`;
+}
+function emailReport(){
+  const week=state.tableWeek||state.currentWeek;
+  const year=reportYear();
+  if(!Array.isArray(state.mailDraftRecipients))state.mailDraftRecipients=[];
+  if(!state.mailConnected){
+    app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver al informe</button><section class="card hero"><span class="badge">Envío seguro · prueba</span><h2 style="margin-top:8px">Enviar informe · Semana ${week} · ${year}</h2><p class="muted">Durante las pruebas conecte el correo que usará como remitente. En producción se utilizará el correo corporativo asignado al Analista.</p></section><section class="card mail-connect"><h3>Conectar cuenta de correo</h3><label class="label">Correo del Analista</label><input id="mailAccount" class="input" type="email" placeholder="nombre@empresa.com" value="${state.mailAccount||''}"><p class="muted small">Modo de prueba: esta conexión es simulada y no solicita ni almacena contraseñas.</p><button class="btn primary block" onclick="connectMail()">Continuar con este correo</button></section>`,'tablaSemanal');
+    return;
+  }
+  const defaults=state.defaultRecipients.map((e,i)=>`<div class="recipient"><span>✉ ${e}</span><span class="badge">Predeterminado</span><button class="btn ghost small" onclick="removeDefaultRecipient(${i})">Eliminar de la lista</button></div>`).join('');
+  const temps=state.mailDraftRecipients.map((e,i)=>`<div class="recipient temp"><span>✉ ${e}</span><span class="badge warn">Solo este envío</span><button class="btn ghost small" onclick="removeTempRecipient(${i})">Quitar</button></div>`).join('');
+  app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver al informe</button><section class="card hero"><div class="row between wrap"><div><span class="badge">Remitente de prueba</span><h2 style="margin:8px 0 4px">Enviar informe · Semana ${week} · ${year}</h2><p class="muted">${state.mailAccount}</p></div><button class="btn ghost small" onclick="disconnectMail()">Cambiar cuenta</button></div></section><section class="card"><h3>Destinatarios</h3><p class="muted">Puede administrar la lista predeterminada y agregar destinatarios solo para este envío.</p><div id="recipientList">${defaults}</div><div id="tempRecipients">${temps}</div><div class="recipient-add"><input id="newRecipient" class="input" type="email" placeholder="otro.correo@empresa.com"><button class="btn secondary" onclick="addRecipient()">Agregar</button></div><label class="save-default"><input id="saveDefault" type="checkbox"> Guardar como destinatario predeterminado</label></section><section class="card"><label class="label">Asunto</label><input id="mailSubject" class="input" value="Resultados de conformidad de siembra - Semana ${week} · ${year}"><label class="label">Cuerpo del correo</label><textarea id="mailBody" class="input mail-body">Buenos días,\n\nAdjunto se envía el informe de resultados de conformidad correspondiente a la Semana ${week} de ${year}.\n\nCordialmente.</textarea><div class="attachment"><div class="pdf-icon">PDF</div><div><b>${reportPdfName()}</b><small>Informe de conformidad · PDF generado por la aplicación</small></div></div><button class="btn primary block" onclick="reviewEmail()">Revisar antes de enviar</button></section>`,'tablaSemanal');
+}
+function addRecipient(){
+  const inp=$('#newRecipient'),email=inp.value.trim().toLowerCase();
+  if(!email||!email.includes('@'))return toast('Escriba un correo válido');
+  const exists=state.defaultRecipients.some(x=>x.toLowerCase()===email)||state.mailDraftRecipients.some(x=>x.toLowerCase()===email);
+  if(exists)return toast('Ese correo ya está agregado');
+  if($('#saveDefault').checked){
+    state.defaultRecipients.push(email);
+    save();render();toast('Agregado a destinatarios predeterminados');
+  }else{
+    state.mailDraftRecipients.push(email);
+    save();render();toast('Agregado solo a este envío');
+  }
+}
 function removeDefaultRecipient(i){state.defaultRecipients.splice(i,1);save();render()}
-function sendDemoEmail(){let subject=$('#mailSubject').value.trim();if(!subject)return toast('El asunto no puede estar vacío');modal(`<h3>Correo enviado (simulación)</h3><p>El prototipo simuló el envío del informe de la <b>Semana ${state.tableWeek||state.currentWeek}</b> en formato PDF.</p><p class="muted">En la aplicación real, el backend generará el PDF y lo enviará mediante el proveedor de correo autorizado.</p><button class="btn primary block" onclick="closeModal()">Aceptar</button>`)}
+function removeTempRecipient(i){state.mailDraftRecipients.splice(i,1);save();render()}
+function reviewEmail(){
+  const subject=$('#mailSubject').value.trim();
+  const body=$('#mailBody').value.trim();
+  const recipients=[...state.defaultRecipients,...state.mailDraftRecipients];
+  if(!recipients.length)return toast('Agregue al menos un destinatario');
+  if(!subject)return toast('El asunto no puede estar vacío');
+  state.mailDraftSubject=subject;
+  state.mailDraftBody=body;
+  save();
+  const safe=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  modal(`<h3>Confirmar envío</h3><p class="muted">Revise la información antes de confirmar.</p><p><b>Remitente</b><br>${safe(state.mailAccount)}</p><p><b>Destinatarios</b><br>${recipients.map(safe).join('<br>')}</p><p><b>Asunto</b><br>${safe(subject)}</p><p><b>Adjunto</b><br>${safe(reportPdfName())}</p><div class="row wrap"><button class="btn ghost" onclick="closeModal()">Volver a editar</button><button class="btn primary" onclick="confirmDemoEmail()">Confirmar envío</button></div>`);
+}
+function confirmDemoEmail(){
+  closeModal();
+  modal(`<h3>Envío confirmado · simulación</h3><p>El flujo de prueba quedó completado para el informe de la <b>Semana ${state.tableWeek||state.currentWeek} · ${reportYear()}</b>.</p><p><b>${reportPdfName()}</b></p><p class="muted">Todavía no se envía un correo real. La conexión con el proveedor corporativo se implementará posteriormente.</p><button class="btn primary block" onclick="closeModal()">Aceptar</button>`);
+}
 
 render();
