@@ -114,20 +114,8 @@
     // La autorización sigue siendo únicamente una regla de permiso para abrir la
     // corrección; no debe decidir si el cambio queda auditado o no.
     if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
-    // Los checkboxes se construyen directamente desde seed.criteria. Su value es el
-    // código de negocio del ítem (c1, c2, ...), por lo que la corrección debe traducir
-    // esos códigos con el catálogo oficial de Azure en una sola consulta.
-    // El catálogo de ítems es estable y forma parte del contrato de la aplicación.
-    // Para guardar una corrección no debemos depender de una segunda petición GET /api/items:
-    // la evaluación ya usa los códigos c1..c10 y estos corresponden a los IdItem sembrados
-    // en el mismo orden en database/002_seed_items.sql.
-    const itemIdByCode={c1:1,c2:2,c3:3,c4:4,c5:5,c6:6,c7:7,c8:8,c9:9,c10:10};
-    const itemIds=failures.map(code=>itemIdByCode[String(code).trim().toLowerCase()]);
-    const missing=failures.filter((code,index)=>!Number.isInteger(itemIds[index]));
-    if(missing.length){
-      console.error('Código de criterio no reconocido por el contrato local',{missing,failures});
-      return toast('No se reconocieron los criterios: '+missing.join(', '));
-    }
+    const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
+    if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
     if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
     try{
       await SiembraApi.saveAuthorizedCorrection(Number(evaluation.azureResolutionId),{incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
