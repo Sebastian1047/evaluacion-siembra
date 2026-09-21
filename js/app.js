@@ -235,10 +235,10 @@ function openPreparedEmail(){
   const subject=state.mailDraftSubject||'';
   let body=state.mailDraftBody||'';
   body+='\n\nIMPORTANTE: Adjuntar el archivo '+reportPdfName()+' antes de enviar.';
-  const href='mailto:'+recipients+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+  const href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(recipients)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   closeModal();
-  window.location.href=href;
-  setTimeout(()=>modal(`<h3>Correo preparado</h3><p>Se abrió su aplicación de correo con destinatarios, asunto y mensaje diligenciados.</p><p><b>Paso pendiente:</b> adjunte <b>${reportPdfName()}</b> y luego pulse Enviar desde su correo.</p><button class="btn primary block" onclick="closeModal()">Entendido</button>`),500);
+  window.open(href,'_blank','noopener');
+  setTimeout(()=>modal(`<h3>Correo preparado</h3><p>Se abrió Gmail en el navegador con destinatarios, asunto y mensaje diligenciados.</p><p><b>Paso pendiente:</b> adjunte <b>${reportPdfName()}</b> y luego pulse Enviar desde su correo.</p><button class="btn primary block" onclick="closeModal()">Entendido</button>`),500);
 }
 
 render();
