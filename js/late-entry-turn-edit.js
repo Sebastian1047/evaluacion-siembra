@@ -133,17 +133,21 @@
     let azureItems=[];
     try{azureItems=await SiembraApi.getItems();}catch(error){console.error('No fue posible consultar los ítems para la corrección.',error);}
     const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
-    const itemIds=failures.map(value=>{
-      const direct=Number((window.SiembraAzureItemIds||{})[String(value)]);
+    // El checkbox puede contener el código actual, el nombre visible o un código legado.
+    // Primero tomamos también el texto real de cada fila visible; así la corrección no
+    // depende de cómo se haya serializado una evaluación antigua en localStorage.
+    const checked=[...document.querySelectorAll('[name=edit-turn-crit]:checked')];
+    const itemIds=checked.map(input=>{
+      const value=String(input.value||'');
+      const labelText=String(input.parentElement?.textContent||'').replace(/Crítico/gi,'').trim();
+      const direct=Number((window.SiembraAzureItemIds||{})[value]);
       if(Number.isInteger(direct)&&direct>0)return direct;
-      const localCriterion=(seed.criteria||[]).find(x=>String(x[0])===String(value)||normalize(x[1])===normalize(value));
-      const wantedCode=localCriterion?String(localCriterion[0]):String(value);
-      const wantedName=localCriterion?String(localCriterion[1]):String(value);
-      const item=(Array.isArray(azureItems)?azureItems:[]).find(x=>
-        String(x.codigo??x.Codigo)===wantedCode||
-        normalize(x.nombre??x.Nombre)===normalize(wantedName)||
-        normalize(x.nombre??x.Nombre)===normalize(value)
-      );
+      const localCriterion=(seed.criteria||[]).find(x=>String(x[0])===value||normalize(x[1])===normalize(value)||normalize(x[1])===normalize(labelText));
+      const candidates=[value,labelText,localCriterion?.[0],localCriterion?.[1]].filter(Boolean);
+      const item=(Array.isArray(azureItems)?azureItems:[]).find(x=>{
+        const code=String(x.codigo??x.Codigo??''),name=normalize(x.nombre??x.Nombre);
+        return candidates.some(candidate=>code===String(candidate)||name===normalize(candidate));
+      });
       return Number(item&&(item.id??item.IdItem));
     }).filter(id=>Number.isInteger(id)&&id>0);
     if(itemIds.length!==failures.length){
