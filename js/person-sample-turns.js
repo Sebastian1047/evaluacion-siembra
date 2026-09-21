@@ -105,6 +105,7 @@ commitEval=function(ids){
 };
 
 function advanceGroupTurn(){
+  if(typeof groupWeekIsClosed==='function'&&groupWeekIsClosed())return closedWeekMessage();
   const turn=currentGroupSampleTurn();
   const pending=pendingForTurn(turn);
   if(pending.length){
@@ -123,7 +124,7 @@ function decorateSampleTurnUI(){
     // El turno grupal avanza únicamente por decisión explícita del Asegurador.
     let hero=document.querySelector('.hero');
     if(hero&&!hero.querySelector('#advance-group-turn')){
-      let btn=document.createElement('button');btn.id='advance-group-turn';btn.className='btn secondary';btn.style.cssText='margin-top:8px;width:100%';btn.textContent='Pasar al siguiente turno';btn.onclick=advanceGroupTurn;hero.appendChild(btn);
+      let btn=document.createElement('button');btn.id='advance-group-turn';btn.className='btn secondary';btn.style.cssText='margin-top:8px;width:100%';btn.textContent='Pasar al siguiente turno';const closed=typeof groupWeekIsClosed==='function'&&groupWeekIsClosed();btn.disabled=closed;if(closed){btn.title='La semana está cerrada';btn.style.opacity='.55';btn.style.cursor='not-allowed';}btn.onclick=advanceGroupTurn;hero.appendChild(btn);
     }
     // Indicador principal al lado de Semana N: muestra el turno que el grupo está resolviendo ahora.
     hero=document.querySelector('.hero');
