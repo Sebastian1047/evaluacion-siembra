@@ -163,10 +163,17 @@
       return removed || {id:p.id+'w'+year+'-'+week,name:p.name,doc:p.doc,area:p.area};
     });
     if(!state.calendarWeeks)state.calendarWeeks={};
+    const weekKey=`${year}-w${week}`;
+    const previousCalendarRecord=state.calendarWeeks[weekKey]||{};
+    const localNoEvaluada=previousCalendarRecord.status==='NO_EVALUADA'||!!(state.closedGroupWeeks&&state.closedGroupWeeks['w'+week]?.noEvaluada);
     const azureClosed=String(azureWeek.Estado||'').toUpperCase()==='CERRADA';
-    state.calendarWeeks[`${year}-w${week}`]={status:azureClosed?'CERRADA':'EVALUACION',start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
+    // NO_EVALUADA es un estado operativo local deliberado: no genera cierre ni
+    // evaluaciones ficticias en Azure, por lo que no debe perderse al reconstruir.
+    state.calendarWeeks[weekKey]={...previousCalendarRecord,status:localNoEvaluada?'NO_EVALUADA':(azureClosed?'CERRADA':'EVALUACION'),start:iso(d.start),end:iso(d.end),testMode:true,azureWeekId:azureWeek.IdSemana};
     if(!state.closedGroupWeeks)state.closedGroupWeeks={};
-    if(azureClosed){
+    if(localNoEvaluada){
+      state.closedGroupWeeks['w'+week]={...(state.closedGroupWeeks['w'+week]||{}),closed:true,noEvaluada:true,editEnabled:false,permanentlyLocked:false};
+    }else if(azureClosed){
       state.closedGroupWeeks['w'+week]={...(state.closedGroupWeeks['w'+week]||{}),closed:true,azureClosed:true,closedAt:azureWeek.FechaCierre||state.closedGroupWeeks['w'+week]?.closedAt||new Date().toISOString()};
     }else{
       delete state.closedGroupWeeks['w'+week];
