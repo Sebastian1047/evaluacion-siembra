@@ -50,7 +50,19 @@
         participant=await SiembraApi.addParticipant(semanaId,{sembradorId:String(candidate.doc),turnoInicio:turnoOperativo});
       }
       localAddWorker(id);const added=state.people.find(p=>String(p.doc)===String(candidate.doc));
-      if(added){added.azureParticipationId=participant.IdParticipacion;added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;added.ultimoTurnoIncorporacion=turnoOperativo;added.sampleTurn=Math.max(0,turnoOperativo-1);added.required=typeof refreshEffectiveEvaluationTarget==='function'?refreshEffectiveEvaluationTarget(added):Math.max(Number(added.done)||0,30-added.sampleTurn+(Number(added.done)||0));state.weekOperationalSampleTurn=turnoOperativo;save();render();}
+      if(added){
+        added.azureParticipationId=participant.IdParticipacion;
+        added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;
+        added.ultimoTurnoIncorporacion=turnoOperativo;
+        // Incorporar a una persona mientras el grupo está por iniciar el turno N no significa
+        // que haya perdido N-1 muestras. Su primera evaluación será en N y conserva la meta
+        // semanal completa; sampleTurn solo representa turnos realmente resueltos por ella.
+        added.sampleTurn=Math.max(0,Number(added.done)||0);
+        added.originalRequired=30;
+        added.required=30;
+        state.weekOperationalSampleTurn=turnoOperativo;
+        save();render();
+      }
     }catch(error){console.error('No fue posible agregar/reincorporar el sembrador en Azure.',error);toast('No se pudo guardar el sembrador en Azure. El grupo no fue modificado.');}
   };
 })();
