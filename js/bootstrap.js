@@ -14,7 +14,7 @@
     'js/item-review-quick.js?v=20260918-2',
     'js/weekly-sample-closure.js?v=20260911-1',
     'js/group-week-close.js?v=20260918-2',
-    'js/person-sample-turns.js?v=20260921-explicit-turn-gate',
+    'js/person-sample-turns.js?v=20260921-closed-turn-lock',
     'js/late-entry-turn-edit.js?v=20260920-audit-all-corrections',
     'js/noncompliance-x.js?v=20260915-1',
     'js/sync-attention.js?v=20260911-2',
