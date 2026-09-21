@@ -12,6 +12,31 @@
     modal(`<h3>Crear semana de prueba</h3><p class="muted">Modo de pruebas: el Asegurador puede abrir cualquier semana sin esperar a la fecha del calendario.</p><label>Año</label><input id="testWeekYear" class="input" type="number" min="2000" max="2200" value="${y}"><label style="display:block;margin-top:10px">Número de semana</label><input id="testWeekNumber" class="input" type="number" min="1" max="60" value="${Number(state.currentWeek)||1}"><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="activateTestWeek()">Crear / usar semana</button></div>`);
   };
 
+  // En modo de pruebas, "Marcar semana no evaluada" debe actuar sobre la semana
+  // operativa activa, no sobre la semana correspondiente a la fecha real.
+  window.markCurrentWeekNotEvaluated=function(){
+    const year=Number(state.currentYear);
+    const week=Number(state.currentWeek);
+    const d=datesForWeek(year,week);
+    if((state.people||[]).length||(state.evals||[]).length){
+      return modal('<h3>No se puede inactivar esta semana</h3><p>Ya tiene actividad registrada. Primero debe resolver la información existente.</p><button class="btn primary block" onclick="closeModal()">Entendido</button>');
+    }
+    modal(`<h3>Marcar semana como no evaluada</h3><p>La Semana ${week} de ${year} (${fmt(d.start)} al ${fmt(d.end)}) quedará registrada como <b>NO EVALUADA</b>.</p><p class="muted">En modo de pruebas se cerrará únicamente este período operativo, sin crear evaluaciones ni resoluciones ficticias.</p><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmWeekNotEvaluated()">Confirmar</button></div>`);
+  };
+
+  window.confirmWeekNotEvaluated=function(){
+    const year=Number(state.currentYear);
+    const week=Number(state.currentWeek);
+    const d=datesForWeek(year,week);
+    if(!state.calendarWeeks)state.calendarWeeks={};
+    state.calendarWeeks[`${year}-w${week}`]={...(state.calendarWeeks[`${year}-w${week}`]||{}),status:'NO_EVALUADA',start:iso(d.start),end:iso(d.end),testMode:true};
+    if(!state.closedGroupWeeks)state.closedGroupWeeks={};
+    state.closedGroupWeeks['w'+week]={closed:true,noEvaluada:true,closedAt:new Date().toISOString(),editEnabled:false,permanentlyLocked:false};
+    state.lastAssurerWeek=week;
+    state.lastAssurerYear=year;
+    save();closeModal();render();toast(`Semana ${week} marcada como no evaluada`);
+  };
+
   window.activateTestWeek=async function(yearOverride,weekOverride){
     const year=Number(yearOverride ?? document.querySelector('#testWeekYear')?.value);
     const week=Number(weekOverride ?? document.querySelector('#testWeekNumber')?.value);
