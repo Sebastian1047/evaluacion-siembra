@@ -25,18 +25,19 @@ function ensureSampleTurns(){
   });
 }
 function minSampleTurn(){ensureSampleTurns();return state.people.length?Math.min(...state.people.map(p=>p.sampleTurn)):Math.max(0,(Number(state.weekOperationalSampleTurn)||1)-1)}
-function currentGroupSampleTurn(){return state.people.length?minSampleTurn()+1:Math.max(1,Number(state.weekOperationalSampleTurn)||1)}
-function pendingForTurn(turn){ensureSampleTurns();return state.people.filter(p=>p.sampleTurn<turn)}
+function currentGroupSampleTurn(){return Math.max(1,Number(state.weekOperationalSampleTurn)||1)}
+function pendingForTurn(turn){ensureSampleTurns();return state.people.filter(p=>Number(p.turnoInicio||1)<=turn&&Number(p.sampleTurn||0)<turn)}
 function canAdvancePerson(p){
   ensureSampleTurns();
-  let min=minSampleTurn(),next=p.sampleTurn+1;
-  if(next<=min+1)return {ok:true,next};
-  let pending=pendingForTurn(min+1).filter(x=>x.id!==p.id);
-  return {ok:false,next,pending,turn:min+1};
+  const turn=currentGroupSampleTurn();
+  const start=Math.max(1,Number(p.turnoInicio)||1);
+  if(start>turn)return {ok:false,next:turn,pending:[],turn,notStarted:true};
+  if(Number(p.sampleTurn||0)>=turn)return {ok:false,next:turn,pending:[],turn,alreadyResolved:true};
+  return {ok:true,next:turn};
 }
 function showTurnBlock(p,info){
-  let names=info.pending.map(x=>x.name).join(', ');
-  modal(`<h3>Turno de muestra ${info.turn} pendiente</h3><p><b>${p.name}</b> no puede avanzar todavía al turno ${info.next}.</p><p>Falta${info.pending.length===1?'':'n'} <b>${info.pending.length}</b> persona${info.pending.length===1?'':'s'} por resolver en el turno ${info.turn}.</p>${names?`<p class="muted">${names}</p>`:''}<p>Evalúe a las personas pendientes o registre <b>No realizar muestra</b> para quien corresponda.</p><button class="btn primary block" onclick="closeModal();go('grupo')">Volver al grupo</button>`);
+  if(info.alreadyResolved)return modal(`<h3>Turno ${info.turn} ya resuelto</h3><p><b>${p.name}</b> ya resolvió este turno.</p><p>Use <b>Pasar al siguiente turno</b> desde el grupo cuando corresponda.</p><button class="btn primary block" onclick="closeModal();go('grupo')">Volver al grupo</button>`);
+  if(info.notStarted)return modal(`<h3>Participación aún no iniciada</h3><p><b>${p.name}</b> inicia en el turno ${p.turnoInicio}.</p><button class="btn primary block" onclick="closeModal();go('grupo')">Volver al grupo</button>`);
 }
 function omitCurrentSample(){
   let p=current();if(!p)return;
@@ -92,12 +93,30 @@ commitEval=function(ids){
   commitEvalBeforeSampleTurns(ids);
   if(p.done>beforeDone){p.sampleTurn=info.next;refreshEffectiveEvaluationTarget(p);state.weekOperationalSampleTurn=currentGroupSampleTurn();save()}
 };
+
+function advanceGroupTurn(){
+  const turn=currentGroupSampleTurn();
+  const pending=pendingForTurn(turn);
+  if(pending.length){
+    const names=pending.map(p=>p.name).join(', ');
+    return modal(`<h3>No se puede pasar al turno ${turn+1}</h3><p>Falta resolver el turno ${turn} para <b>${pending.length}</b> sembrador${pending.length===1?'':'es'}.</p><p class="muted">${names}</p><p>Registre una evaluación o <b>No realizar muestra</b> para cada pendiente.</p><button class="btn primary block" onclick="closeModal()">Entendido</button>`);
+  }
+  state.weekOperationalSampleTurn=turn+1;
+  save();render();toast('Turno de muestra '+(turn+1)+' iniciado');
+}
+window.advanceGroupTurn=advanceGroupTurn;
+
 function decorateSampleTurnUI(){
   ensureSampleTurns();
   if(state.role!=='monitor')return;
   if(state.view==='grupo'){
-    // Indicador principal al lado de Semana N: muestra el turno que el grupo está resolviendo ahora.
+    // El turno grupal avanza únicamente por decisión explícita del Asegurador.
     let hero=document.querySelector('.hero');
+    if(hero&&!hero.querySelector('#advance-group-turn')){
+      let btn=document.createElement('button');btn.id='advance-group-turn';btn.className='btn secondary';btn.style.cssText='margin-top:8px;width:100%';btn.textContent='Pasar al siguiente turno';btn.onclick=advanceGroupTurn;hero.appendChild(btn);
+    }
+    // Indicador principal al lado de Semana N: muestra el turno que el grupo está resolviendo ahora.
+    hero=document.querySelector('.hero');
     if(hero&&!hero.querySelector('#group-current-sample-turn')){
       let h2=hero.querySelector('h2');
       if(h2){
