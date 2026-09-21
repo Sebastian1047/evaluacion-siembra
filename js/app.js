@@ -241,22 +241,11 @@ async function downloadReportPdf(){
     const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
     const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight();
     const margin=6,maxW=pageW-margin*2,maxH=pageH-margin*2;
-    const imgW=maxW,imgH=canvas.height*imgW/canvas.width;
-    const pageCanvas=document.createElement('canvas');
-    const ctx=pageCanvas.getContext('2d');
-    const pxPerMm=canvas.width/imgW;
-    const slicePx=Math.floor(maxH*pxPerMm);
-    let y=0,page=0;
-    while(y<canvas.height){
-      const h=Math.min(slicePx,canvas.height-y);
-      pageCanvas.width=canvas.width;pageCanvas.height=h;
-      ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
-      ctx.drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
-      if(page++)pdf.addPage('a4','landscape');
-      const sliceH=h/pxPerMm;
-      pdf.addImage(pageCanvas.toDataURL('image/jpeg',0.95),'JPEG',margin,margin,imgW,sliceH);
-      y+=h;
-    }
+    // Ajusta el informe completo a una sola hoja A4 horizontal conservando proporciones.
+    const scale=Math.min(maxW/canvas.width,maxH/canvas.height);
+    const imgW=canvas.width*scale,imgH=canvas.height*scale;
+    const x=(pageW-imgW)/2,y=(pageH-imgH)/2;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',x,y,imgW,imgH);
     pdf.save(reportPdfName());
     toast('PDF generado');
   }catch(err){
