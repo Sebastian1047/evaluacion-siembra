@@ -114,45 +114,23 @@
     // La autorización sigue siendo únicamente una regla de permiso para abrir la
     // corrección; no debe decidir si el cambio queda auditado o no.
     if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
-    // El mapa de ítems puede haberse perdido si esta vista se restauró desde el estado
-    // local sin pasar nuevamente por el login. Recárguelo antes de rechazar la corrección.
-    if(failures.some(code=>!Number((window.SiembraAzureItemIds||{})[String(code)]))){
-      try{
-        const items=await SiembraApi.getItems();
-        const byCode=Object.fromEntries((Array.isArray(items)?items:[]).map(item=>[
-          String(item.codigo??item.Codigo),
-          Number(item.id??item.IdItem)
-        ]));
-        window.SiembraAzureItemIds={...(window.SiembraAzureItemIds||{}),...byCode};
-      }catch(error){
-        console.error('No fue posible recargar el catálogo de ítems de Azure.',error);
-      }
-    }
-    // Compatibilidad con evaluaciones locales antiguas: algunas guardaron el nombre
-    // visible del criterio en lugar de su código (c1, c2...). Resolver también por nombre.
+    // Los checkboxes se construyen directamente desde seed.criteria. Su value es el
+    // código de negocio del ítem (c1, c2, ...), por lo que la corrección debe traducir
+    // esos códigos con el catálogo oficial de Azure en una sola consulta.
     let azureItems=[];
-    try{azureItems=await SiembraApi.getItems();}catch(error){console.error('No fue posible consultar los ítems para la corrección.',error);}
-    const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
-    // El checkbox puede contener el código actual, el nombre visible o un código legado.
-    // Primero tomamos también el texto real de cada fila visible; así la corrección no
-    // depende de cómo se haya serializado una evaluación antigua en localStorage.
-    const checked=[...document.querySelectorAll('[name=edit-turn-crit]:checked')];
-    const itemIds=checked.map(input=>{
-      const value=String(input.value||'');
-      const labelText=String(input.parentElement?.textContent||'').replace(/Crítico/gi,'').trim();
-      const direct=Number((window.SiembraAzureItemIds||{})[value]);
-      if(Number.isInteger(direct)&&direct>0)return direct;
-      const localCriterion=(seed.criteria||[]).find(x=>String(x[0])===value||normalize(x[1])===normalize(value)||normalize(x[1])===normalize(labelText));
-      const candidates=[value,labelText,localCriterion?.[0],localCriterion?.[1]].filter(Boolean);
-      const item=(Array.isArray(azureItems)?azureItems:[]).find(x=>{
-        const code=String(x.codigo??x.Codigo??''),name=normalize(x.nombre??x.Nombre);
-        return candidates.some(candidate=>code===String(candidate)||name===normalize(candidate));
-      });
-      return Number(item&&(item.id??item.IdItem));
-    }).filter(id=>Number.isInteger(id)&&id>0);
-    if(itemIds.length!==failures.length){
-      console.error('Criterios sin IdItem Azure',{failures,seedCriteria:seed.criteria,azureItems});
-      return toast('No se pudieron identificar todos los ítems en Azure');
+    try{azureItems=await SiembraApi.getItems();}catch(error){
+      console.error('No fue posible consultar el catálogo de ítems de Azure.',error);
+      return toast('No se pudo consultar el catálogo de ítems en Azure');
+    }
+    const itemByCode=new Map((Array.isArray(azureItems)?azureItems:[]).map(item=>[
+      String(item.codigo??item.Codigo??'').trim().toLowerCase(),
+      Number(item.id??item.IdItem)
+    ]));
+    const itemIds=failures.map(code=>itemByCode.get(String(code).trim().toLowerCase()));
+    const missing=failures.filter((code,index)=>!Number.isInteger(itemIds[index])||itemIds[index]<=0);
+    if(missing.length){
+      console.error('Códigos de criterio inexistentes en Azure',{missing,failures,azureItems});
+      return toast('Azure no reconoce: '+missing.join(', '));
     }
     if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
     try{
