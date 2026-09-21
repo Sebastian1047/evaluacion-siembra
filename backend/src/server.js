@@ -170,7 +170,7 @@ WHERE r.IdResolucion=@rid`);
 SELECT TOP(1) IdAutorizacion FROM dbo.AutorizacionCorreccion
 WHERE IdResolucion=@rid2 AND Estado='AUTORIZADA' AND UtilizadaEn IS NULL AND (ExpiraEn IS NULL OR ExpiraEn>SYSUTCDATETIME())
 ORDER BY IdAutorizacion DESC`);
-  if(!auth.recordset[0]){await tx.rollback();return res.status(403).json({error:'La evaluación no tiene una autorización vigente'});}
+  let directAllowed=false;if(row.EstadoSemana==='ABIERTA'){const recent=await new sql.Request(tx).input('pidRecent',sql.Int,row.IdParticipacion).query("SELECT TOP(2) r.IdResolucion FROM dbo.ResolucionTurno r JOIN dbo.Evaluacion e ON e.IdResolucion=r.IdResolucion WHERE r.IdParticipacion=@pidRecent AND r.Tipo='EVALUACION' ORDER BY r.NumeroTurno DESC,r.IdResolucion DESC");directAllowed=recent.recordset.some(x=>Number(x.IdResolucion)===Number(row.IdResolucion));}\n  if(!directAllowed&&!auth.recordset[0]){await tx.rollback();return res.status(403).json({error:'La evaluación requiere autorización vigente del Analista'});}
   const before=await new sql.Request(tx).input('eid0',sql.BigInt,row.IdEvaluacion).query('SELECT IdItem FROM dbo.Incumplimiento WHERE IdEvaluacion=@eid0 ORDER BY IdItem');
   const beforeIds=before.recordset.map(x=>Number(x.IdItem)).filter(Number.isInteger);
   const afterIds=[...new Set(incumplimientos.map(Number).filter(Number.isInteger))];
@@ -181,10 +181,10 @@ ORDER BY IdAutorizacion DESC`);
     .input('uidAudit',sql.NVarChar(100),usuarioCorporativoId)
     .input('antesAudit',sql.NVarChar(sql.MAX),JSON.stringify(beforeIds))
     .input('despuesAudit',sql.NVarChar(sql.MAX),JSON.stringify(afterIds))
-    .input('aidAudit',sql.BigInt,auth.recordset[0].IdAutorizacion)
+    .input('aidAudit',sql.BigInt,auth.recordset[0]?auth.recordset[0].IdAutorizacion:null)
     .query(`INSERT dbo.AuditoriaCorreccion(IdEvaluacion,UsuarioCorporativoId,EstadoAntes,EstadoDespues,IdAutorizacion)
             VALUES(@eidAudit,@uidAudit,@antesAudit,@despuesAudit,@aidAudit)`);
-  await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
+  if(auth.recordset[0])await new sql.Request(tx).input('aid',sql.BigInt,auth.recordset[0].IdAutorizacion).query("UPDATE dbo.AutorizacionCorreccion SET Estado='UTILIZADA',UtilizadaEn=SYSUTCDATETIME() WHERE IdAutorizacion=@aid");
   await tx.commit();res.json({ok:true,idResolucion:row.IdResolucion,idEvaluacion:row.IdEvaluacion,autorizacionUtilizada:auth.recordset[0].IdAutorizacion});
 }catch(e){try{await tx.rollback();}catch{}next(e);}});
 
