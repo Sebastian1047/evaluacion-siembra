@@ -5,6 +5,10 @@
 // que todavía puede completar dentro de las 30 rondas semanales.
 // Cada ronda ya pasada sin evaluación reduce required, sin eliminar el turno operativo.
 if(!state.sampleTurnOmissions)state.sampleTurnOmissions=[];
+// Migración del prototipo al control manual de turnos. La semana activa estaba avanzando
+// automáticamente al evaluar a una sola persona; al activar este modelo, el turno vuelve a 1
+// una sola vez y desde aquí solo cambia mediante el botón explícito.
+if(!state.manualSampleTurnControl){state.weekOperationalSampleTurn=1;state.manualSampleTurnControl=true;save();}
 function effectiveEvaluationTarget(p){
   const done=Math.max(0,Number(p&&p.done)||0);
   const elapsed=Math.max(0,Number(p&&p.sampleTurn)||0);
