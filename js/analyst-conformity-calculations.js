@@ -36,10 +36,47 @@
 
   function pct(v){ return v === null ? '—' : Math.round(v) + '%'; }
 
+  function reportWeekKey(year,week){ return year+'-w'+week; }
+  function reportWeekHasRealEvaluations(year,week){
+    return (state.evals||[]).some(e=>Number(e.year??state.currentYear)===Number(year)&&evaluationWeek(e)===Number(week));
+  }
+  function availableReportWeeks(){
+    const out=[];
+    const seen=new Set();
+    const add=(year,week)=>{
+      year=Number(year);week=Number(week);
+      if(!year||!week)return;
+      const key=reportWeekKey(year,week);
+      const cal=state.calendarWeeks&&state.calendarWeeks[key];
+      const closed=String(cal?.status||'').toUpperCase()==='CERRADA'||(Number(year)===Number(state.currentYear)&&!!state.closedGroupWeeks?.['w'+week]?.closed&&!state.closedGroupWeeks?.['w'+week]?.noEvaluada);
+      const noEvaluada=String(cal?.status||'').toUpperCase()==='NO_EVALUADA'||(Number(year)===Number(state.currentYear)&&!!state.closedGroupWeeks?.['w'+week]?.noEvaluada);
+      if(closed&&!noEvaluada&&reportWeekHasRealEvaluations(year,week)&&!seen.has(key)){seen.add(key);out.push({year,week});}
+    };
+    Object.keys(state.calendarWeeks||{}).forEach(k=>{const m=k.match(/^(\d+)-w(\d+)$/);if(m)add(m[1],m[2]);});
+    (state.evals||[]).forEach(e=>add(e.year??state.currentYear,evaluationWeek(e)));
+    add(state.currentYear,state.currentWeek);
+    return out.sort((a,b)=>b.year-a.year||b.week-a.week);
+  }
+  window.changeConformityReportYear=function(value){
+    const year=Number(value),weeks=availableReportWeeks().filter(x=>x.year===year);
+    state.tableYear=year;state.tableWeek=weeks[0]?.week||null;save();weeklyTable();
+  };
+  window.changeConformityReportWeek=function(value){
+    state.tableWeek=Number(value);save();weeklyTable();
+  };
+
   // Se conserva exactamente la estructura de columnas que ya tenía el informe.
   // Dos columnas existentes apuntan hoy a c10; no se cambia ese mapeo hasta validar el ítem corporativo correcto.
   window.weeklyTable = function(){
-    const week = state.tableWeek || state.currentWeek;
+    const options=availableReportWeeks();
+    if(options.length){
+      const selectedExists=options.some(x=>x.year===Number(state.tableYear)&&x.week===Number(state.tableWeek));
+      if(!selectedExists){state.tableYear=options[0].year;state.tableWeek=options[0].week;save();}
+    }
+    const year=Number(state.tableYear||state.currentYear);
+    const week=Number(state.tableWeek||state.currentWeek);
+    const years=[...new Set(options.map(x=>x.year))];
+    const weeks=options.filter(x=>x.year===year);
     const people = state.people.length ? state.people : seed.people;
     const cols = [['c7','Aseo sitio de trabajo'],['c2','Densidad y distribución'],['c3','Estado de la planta'],['c1','Planta inclinada'],['c4','Profundidad de la planta'],['c5','Selección de esquejes'],['c9','Siembra con marcador'],['c10','Conteo de líneas'],['c10','Ubicación mangueras']];
 
@@ -54,7 +91,7 @@
     const mini=weekly.map(x=>`<tr><td>SEMANA ${x[0]}</td><td>${x[1]}%</td></tr>`).join('');
     const bars=weekly.map(x=>`<div class="print-bar-item"><b>${x[1]}%</b><div class="print-bar" style="height:${Math.max(25,x[1]-55)*3}px"></div><span>SEMANA ${x[0]}</span></div>`).join('');
 
-    app.innerHTML=layout(`<div class="no-print"><button class="back" onclick="go('analisis')">← Volver a análisis</button><div class="row between wrap"><div><h2>Conformidad individual · Semana ${week}</h2><p class="muted">Calculada con las muestras reales registradas. “No realizar muestra” no entra al denominador.</p></div><div class="row wrap"><button class="btn secondary" onclick="openEmailReport()">✉ Enviar por correo</button><button class="btn secondary" onclick="downloadReportPdf()">⬇ PDF</button><button class="btn primary" onclick="window.print()">🖨 Imprimir</button></div></div></div><section class="report-sheet"><div class="report-head"><div><b>JARDINES DE SAN NICOLÁS S.A.S.</b></div><div><b>RUTA DE APRENDIZAJE</b></div><div class="assurance"><b>ASEGURAMIENTO</b></div><div>INDICADOR</div><div>METEORO</div><div></div><div>ÁREA</div><div>SIEMBRA EN CAMPO</div><div></div><div>RESPONSABLE</div><div>ERASMO GOMEZ</div><div></div></div><h3 class="table-title">RESULTADOS CONFORMIDAD INDIVIDUAL SEMANA ${week}</h3><div class="table-scroll"><table class="conformity-table"><thead><tr><th>NOMBRE DEL COLABORADOR</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th>Conformidad Total</th></tr></thead><tbody>${rows}</tbody></table></div><div class="weekly-summary"><table class="mini-table"><thead><tr><th>SEMANAS</th><th>CONFORMIDAD GRUPAL</th></tr></thead><tbody>${mini}</tbody></table><div class="print-chart"><h3>METEORO · CONFORMIDAD GRUPAL (SEMANAL)</h3><div class="print-bars">${bars}</div></div></div><div class="signature-grid"><div>JEFE PRODUCCIÓN</div><div>SUPERVISOR (J)</div><div>SUPERVISOR (M)</div><div>JEFE SAVIA - METEORO</div></div></section><div class="no-print action-stack"><button class="btn secondary block" onclick="openEmailReport()">✉ Enviar tabla en PDF por correo</button><button class="btn secondary block" onclick="downloadReportPdf()">⬇ Descargar informe en PDF</button><button class="btn primary block" onclick="window.print()">🖨 Mandar a imprimir</button></div>`,'tablaSemanal');
+    app.innerHTML=layout(`<div class="no-print"><button class="back" onclick="go('analisis')">← Volver a análisis</button><div class="row between wrap"><div><h2>Conformidad individual · Semana ${week}</h2><p class="muted">Calculada con las muestras reales registradas. “No realizar muestra” no entra al denominador.</p><div class="row wrap" style="margin-top:12px"><label><b>Año</b><select class="input" style="margin-left:6px;width:auto" onchange="changeConformityReportYear(this.value)">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}</select></label><label><b>Semana</b><select class="input" style="margin-left:6px;width:auto" onchange="changeConformityReportWeek(this.value)">${weeks.map(x=>`<option value="${x.week}" ${x.week===week?'selected':''}>Semana ${x.week}</option>`).join('')}</select></label></div></div><div class="row wrap"><button class="btn secondary" onclick="openEmailReport()">✉ Enviar por correo</button><button class="btn secondary" onclick="downloadReportPdf()">⬇ PDF</button><button class="btn primary" onclick="window.print()">🖨 Imprimir</button></div></div></div><section class="report-sheet"><div class="report-head"><div><b>JARDINES DE SAN NICOLÁS S.A.S.</b></div><div><b>RUTA DE APRENDIZAJE</b></div><div class="assurance"><b>ASEGURAMIENTO</b></div><div>INDICADOR</div><div>METEORO</div><div></div><div>ÁREA</div><div>SIEMBRA EN CAMPO</div><div></div><div>RESPONSABLE</div><div>ERASMO GOMEZ</div><div></div></div><h3 class="table-title">RESULTADOS CONFORMIDAD INDIVIDUAL SEMANA ${week}</h3><div class="table-scroll"><table class="conformity-table"><thead><tr><th>NOMBRE DEL COLABORADOR</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th>Conformidad Total</th></tr></thead><tbody>${rows}</tbody></table></div><div class="weekly-summary"><table class="mini-table"><thead><tr><th>SEMANAS</th><th>CONFORMIDAD GRUPAL</th></tr></thead><tbody>${mini}</tbody></table><div class="print-chart"><h3>METEORO · CONFORMIDAD GRUPAL (SEMANAL)</h3><div class="print-bars">${bars}</div></div></div><div class="signature-grid"><div>JEFE PRODUCCIÓN</div><div>SUPERVISOR (J)</div><div>SUPERVISOR (M)</div><div>JEFE SAVIA - METEORO</div></div></section><div class="no-print action-stack"><button class="btn secondary block" onclick="openEmailReport()">✉ Enviar tabla en PDF por correo</button><button class="btn secondary block" onclick="downloadReportPdf()">⬇ Descargar informe en PDF</button><button class="btn primary block" onclick="window.print()">🖨 Mandar a imprimir</button></div>`,'tablaSemanal');
   };
 
   // Disponible para comprobar cálculos desde otras vistas sin duplicar fórmulas.
