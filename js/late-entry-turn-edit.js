@@ -116,11 +116,23 @@
     if(!window.SiembraApi||typeof SiembraApi.saveAuthorizedCorrection!=='function')return toast('No se pudo conectar con el servicio de correcciones');
     // El mapa de ítems puede haberse perdido si esta vista se restauró desde el estado
     // local sin pasar nuevamente por el login. Recárguelo antes de rechazar la corrección.
-    if(failures.some(code=>!Number((window.SiembraAzureItemIds||{})[String(code)]))&&window.SiembraApi&&typeof SiembraApi.loadCriteriaIntoSeed==='function'){
-      await SiembraApi.loadCriteriaIntoSeed();
+    if(failures.some(code=>!Number((window.SiembraAzureItemIds||{})[String(code)]))){
+      try{
+        const items=await SiembraApi.getItems();
+        const byCode=Object.fromEntries((Array.isArray(items)?items:[]).map(item=>[
+          String(item.codigo??item.Codigo),
+          Number(item.id??item.IdItem)
+        ]));
+        window.SiembraAzureItemIds={...(window.SiembraAzureItemIds||{}),...byCode};
+      }catch(error){
+        console.error('No fue posible recargar el catálogo de ítems de Azure.',error);
+      }
     }
     const itemIds=failures.map(code=>Number((window.SiembraAzureItemIds||{})[String(code)])).filter(Number.isInteger);
-    if(itemIds.length!==failures.length)return toast('No se pudieron identificar todos los ítems en Azure');
+    if(itemIds.length!==failures.length){
+      console.error('Criterios sin IdItem Azure',failures.filter(code=>!Number((window.SiembraAzureItemIds||{})[String(code)])),window.SiembraAzureItemIds);
+      return toast('No se pudieron identificar todos los ítems en Azure');
+    }
     if(!Number(evaluation.azureResolutionId))return toast('La evaluación no está vinculada con Azure y no puede corregirse');
     try{
       await SiembraApi.saveAuthorizedCorrection(Number(evaluation.azureResolutionId),{incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
