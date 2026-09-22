@@ -27,32 +27,37 @@ function confirmDeleteEmptyWeek(){
   state.currentWeek=Math.max(1,deletedWeek-1);
   save();closeModal();state.view='grupo';render();toast('Semana '+deletedWeek+' eliminada');
 }
-function unresolvedCurrentTurn(){
+function currentTurnCloseStatus(){
   if(typeof ensureSampleTurns==='function')ensureSampleTurns();
-  const people=state.people||[];if(!people.length)return null;
+  const people=state.people||[];
   const turn=typeof currentGroupSampleTurn==='function'?currentGroupSampleTurn():Math.max(1,Number(state.weekOperationalSampleTurn)||1);
-  const pending=people.filter(p=>Number(p.turnoInicio||1)<=turn&&Number(p.sampleTurn||0)<turn);
-  return pending.length?{turn,pending}:null;
+  const participants=people.filter(p=>Number(p.turnoInicio||1)<=turn);
+  const resolved=participants.filter(p=>Number(p.sampleTurn||0)>=turn);
+  const pending=participants.filter(p=>Number(p.sampleTurn||0)<turn);
+  return {turn,participants,resolved,pending};
 }
-function showUnresolvedCurrentTurn(info){
-  let rows=info.pending.map(p=>`<div class="row between" style="padding:7px 0;border-bottom:1px solid #eee"><span>${p.name}</span><b>Pendiente turno ${info.turn}</b></div>`).join('');
-  modal(`<h3>No se puede cerrar la semana</h3><p>Antes de cerrar, todos los sembradores que participan en el <b>turno de muestra ${info.turn}</b> deben resolver ese turno.</p><p>Hay <b>${info.pending.length}</b> sembrador${info.pending.length===1?'':'es'} pendiente${info.pending.length===1?'':'s'}.</p><div style="max-height:220px;overflow:auto">${rows}</div><p class="muted">Los turnos en los que una persona estuvo retirada no se consideran pendientes y no se registran como <b>No realizar muestra</b>.</p><button class="btn primary block" onclick="closeModal()">Resolver pendientes</button>`);
+function closeWeekConfirmation(status){
+  const turn=status.turn,goal=30,completed=Math.max(0,turn-1),missing=Math.max(0,goal-completed);
+  if(!status.resolved.length){
+    return modal(`<h3>Cierre de la Semana ${state.currentWeek}</h3><p>El <b>turno de muestra ${turn}</b> fue iniciado, pero <b>no se evaluó ni se registró No realizar muestra para ningún sembrador</b> en este turno.</p><p>La semana puede cerrarse en este punto. El turno ${turn} y los posteriores <b>no se registrarán como No realizar muestra</b>; simplemente no fueron alcanzados durante esta semana.</p><p><b>¿Desea cerrar la semana de todas formas?</b></p><div class="row"><button class="btn ghost" onclick="closeModal()">Continuar semana</button><button class="btn danger" onclick="confirmCloseGroupWeek(true)">Cerrar semana</button></div>`);
+  }
+  if(status.pending.length){
+    const resolvedNames=status.resolved.map(p=>p.name).join(', ');
+    const pendingNames=status.pending.map(p=>p.name).join(', ');
+    return modal(`<h3>Cierre de la Semana ${state.currentWeek}</h3><p>El grupo está trabajando en el <b>turno de muestra ${turn}</b>, pero el turno quedó parcialmente resuelto.</p><div class="card" style="margin:12px 0"><p style="margin-top:0"><b>Ya resolvieron el turno ${turn}:</b></p><p class="muted">${resolvedNames}</p><p><b>Falta resolver el turno ${turn}:</b></p><p class="muted" style="margin-bottom:0">${pendingNames}</p></div><p>Las personas pendientes <b>no se registrarán como No realizar muestra</b>. El cierre conservará únicamente lo que realmente se alcanzó a registrar.</p><p><b>¿Desea cerrar la semana con el turno ${turn} incompleto?</b></p><div class="row"><button class="btn ghost" onclick="closeModal()">Continuar semana</button><button class="btn danger" onclick="confirmCloseGroupWeek(true)">Cerrar semana</button></div>`);
+  }
+  if(turn<=goal){
+    return modal(`<h3>Cierre anticipado de la Semana ${state.currentWeek}</h3><p>Todos los sembradores participantes resolvieron el <b>turno de muestra ${turn}</b>.</p><div class="card" style="margin:12px 0"><div class="row between"><span>Último turno completado</span><b>${turn} de ${goal}</b></div><div class="row between" style="margin-top:8px"><span>Turnos que faltan para completar</span><b>${Math.max(0,goal-turn)}</b></div></div><p>Los turnos posteriores que no se alcancen esta semana <b>no se registrarán como No realizar muestra</b>.</p><p><b>¿Desea cerrar la semana?</b></p><div class="row"><button class="btn ghost" onclick="closeModal()">Continuar semana</button><button class="btn danger" onclick="confirmCloseGroupWeek(true)">Cerrar semana</button></div>`);
+  }
 }
 function askCloseGroupWeek(){
   if(groupWeekIsClosed())return closedWeekMessage();
-  let unresolved=unresolvedCurrentTurn();if(unresolved)return showUnresolvedCurrentTurn(unresolved);
   if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
-  let turn=Math.max(0,(typeof currentGroupSampleTurn==='function'?currentGroupSampleTurn():Number(state.weekOperationalSampleTurn)||1)-1);
-  let goal=30;
-  if(turn<goal){
-    let missing=goal-turn;
-    return modal(`<h3>Cierre anticipado de la Semana ${state.currentWeek}</h3><p>Todos los sembradores están nivelados en el <b>turno de muestra ${turn}</b>.</p><div class="card" style="margin:12px 0"><div class="row between"><span>Turnos resueltos</span><b>${turn} de ${goal}</b></div><div class="row between" style="margin-top:8px"><span>Turnos que faltan para completar</span><b>${missing}</b></div></div><p>La semana calendario puede cerrarse aunque no se hayan completado los 30 turnos. Los turnos faltantes <b>no se registrarán como No realizar muestra</b>; simplemente no fueron alcanzados durante esta semana.</p><p><b>Si es consciente de que faltan ${missing} turnos y aun así considera necesario cerrar la semana, confirme el cierre.</b></p><p class="muted">Después del cierre podrá consultar la información, pero no modificarla salvo habilitación temporal del Analista antes de crear la siguiente semana.</p><div class="row"><button class="btn ghost" onclick="closeModal()">Continuar semana</button><button class="btn danger" onclick="confirmCloseGroupWeek()">Cerrar semana</button></div>`);
-  }
-  modal(`<h3>¿Está seguro que quiere cerrar la Semana ${state.currentWeek}?</h3><p>Todos los sembradores están nivelados y han completado los <b>${goal} turnos de muestra</b>.</p><p>Si cierra la semana, podrá <b>ver la información</b>, pero no podrá modificarla.</p><div class="card" style="margin:12px 0"><b>Correcciones después del cierre</b><p class="muted" style="margin-bottom:0">Si necesita modificar algo, debe comunicarse con el <b>Analista</b> para que le habilite temporalmente la modificación. Esto solo será posible <b>antes de crear la nueva semana</b>. Una vez creada la siguiente semana, ni el Analista podrá habilitar modificaciones sobre esta semana.</p></div><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmCloseGroupWeek()">Cerrar semana</button></div>`);
+  return closeWeekConfirmation(currentTurnCloseStatus());
 }
-async function confirmCloseGroupWeek(){
-  let unresolved=unresolvedCurrentTurn();if(unresolved)return showUnresolvedCurrentTurn(unresolved);
+async function confirmCloseGroupWeek(closeConfirmed){
   if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
+  if(!closeConfirmed)return closeWeekConfirmation(currentTurnCloseStatus());
   if(!window.SiembraApi||typeof SiembraApi.closeWeek!=='function')return toast('No se pudo conectar con el servicio de cierre');
   let weekId=Number(state.currentAzureWeekId)||0;
   try{
