@@ -142,12 +142,12 @@ async function loadAzureAuthorizationsView(){
         if(direct.has(turn))continue;
         const row=evaluated.find(r=>Number(r.NumeroTurno)===turn);
         if(unavailableResolutions.has(Number(row.IdResolucion)))continue;
-        cards.push({resolutionId:Number(row.IdResolucion),personId:String(first.SembradorCorporativoId||''),turn});
+        cards.push({resolutionId:Number(row.IdResolucion),personId:String(first.SembradorCorporativoId||''),personName:(typeof empleadosReales!=='undefined'?empleadosReales.find(e=>String(e.codigo)===String(first.SembradorCorporativoId))?.nombre:null)||String(first.SembradorCorporativoId||'Sembrador'),turn});
       }
     }
     cards.sort((a,b)=>b.turn-a.turn||a.personId.localeCompare(b.personId));
     window.__azureAuthorizationRows=cards;
-    const html=cards.map((e,i)=>`<article class="card"><div class="row between wrap"><div><b>${e.personId||'Sembrador'}</b><div class="muted small">Semana ${week.NumeroSemana} · ${week.AnioEvaluacion} · Turno ${e.turn}</div></div><button class="btn primary small" onclick="enableAzureEvaluation(${i})">Habilitar</button></div></article>`).join('');
+    const html=cards.map((e,i)=>`<article class="card"><div class="row between wrap"><div><b>${e.personName}</b><div class="muted small">ID: ${e.personId||'-'}</div><div class="muted small">Semana ${week.NumeroSemana} · ${week.AnioEvaluacion} · Turno ${e.turn}</div></div><button class="btn primary small" onclick="enableAzureEvaluation(${i})">Habilitar</button></div></article>`).join('');
     app.innerHTML=layout(`<section style="max-width:760px;margin:0 auto">${html||'<div class="card muted">No hay evaluaciones disponibles para habilitar.</div>'}</section>`,'gestion');
   }catch(error){
     console.error('No fue posible cargar Autorizaciones desde Azure.',error);
