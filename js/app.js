@@ -6,6 +6,8 @@ if(!state.reportCharts) state.reportCharts=[];
 if(!state.itemReviews) state.itemReviews={};
 if(!state.activeCriterion) state.activeCriterion=seed.criteria[0][0];
 if(!state.defaultRecipients) state.defaultRecipients=['jefe.produccion@empresa.com','supervisor@empresa.com'];
+if(!state.defaultMailSubject) state.defaultMailSubject='Resultados de conformidad de siembra - Semana {semana} · {anio}';
+if(!state.defaultMailBody) state.defaultMailBody='Buenos días,\n\nAdjunto se envía el informe de resultados de conformidad correspondiente a la Semana {semana} de {anio}.\n\nCordialmente.';
 if(!state.mailConnected) state.mailConnected=false;
 if(!state.historyFailures) state.historyFailures={
   p1:[{week:36,sample:3,criterion:'c1'},{week:36,sample:8,criterion:'c10'},{week:35,sample:4,criterion:'c4'}],
@@ -218,13 +220,33 @@ function reportPdfName(){
   const week=state.tableWeek||state.currentWeek;
   return `Informe_Conformidad_Siembra_Semana_${week}_${reportYear()}.pdf`;
 }
+function mailTemplateValue(template,week,year){return String(template||'').replaceAll('{semana}',week).replaceAll('{anio}',year)}
 function emailReport(){
   const week=state.tableWeek||state.currentWeek;
   const year=reportYear();
+  const defaultSubject=mailTemplateValue(state.defaultMailSubject,week,year);
+  const defaultBody=mailTemplateValue(state.defaultMailBody,week,year);
   if(!Array.isArray(state.mailDraftRecipients))state.mailDraftRecipients=[];
   const defaults=state.defaultRecipients.map((e,i)=>`<div class="recipient"><span>✉ ${e}</span><span class="badge">Predeterminado</span><button class="btn ghost small" onclick="removeDefaultRecipient(${i})">Eliminar de la lista</button></div>`).join('');
   const temps=state.mailDraftRecipients.map((e,i)=>`<div class="recipient temp"><span>✉ ${e}</span><span class="badge warn">Solo este envío</span><button class="btn ghost small" onclick="removeTempRecipient(${i})">Quitar</button></div>`).join('');
-  app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver al informe</button><section class="card hero"><span class="badge">Preparar correo</span><h2 style="margin-top:8px">Enviar informe · Semana ${week} · ${year}</h2><p class="muted">La aplicación preparará el correo y lo abrirá en el programa de correo del Analista. El envío se realiza desde su propia cuenta.</p></section><section class="card"><h3>Destinatarios</h3><p class="muted">Puede administrar la lista predeterminada y agregar destinatarios solo para este envío.</p><div id="recipientList">${defaults}</div><div id="tempRecipients">${temps}</div><div class="recipient-add"><input id="newRecipient" class="input" type="email" placeholder="otro.correo@empresa.com"><button class="btn secondary" onclick="addRecipient()">Agregar</button></div><label class="save-default"><input id="saveDefault" type="checkbox"> Guardar como destinatario predeterminado</label></section><section class="card"><label class="label">Asunto</label><input id="mailSubject" class="input" value="Resultados de conformidad de siembra - Semana ${week} · ${year}"><label class="label">Cuerpo del correo</label><textarea id="mailBody" class="input mail-body">Buenos días,\n\nAdjunto se envía el informe de resultados de conformidad correspondiente a la Semana ${week} de ${year}.\n\nCordialmente.</textarea><div class="attachment"><div class="pdf-icon">PDF</div><div><b>${reportPdfName()}</b><small>El PDF se guarda aparte para que el Analista lo adjunte al correo.</small></div></div><button class="btn primary block" onclick="reviewEmail()">Revisar antes de abrir el correo</button></section>`,'tablaSemanal');
+  app.innerHTML=layout(`<button class="back" onclick="go('tablaSemanal')">← Volver al informe</button><section class="card hero"><span class="badge">Preparar correo</span><h2 style="margin-top:8px">Enviar informe · Semana ${week} · ${year}</h2><p class="muted">La aplicación preparará el correo y lo abrirá en el programa de correo del Analista. El envío se realiza desde su propia cuenta.</p></section><section class="card"><h3>Destinatarios</h3><p class="muted">Puede administrar la lista predeterminada y agregar destinatarios solo para este envío.</p><div id="recipientList">${defaults}</div><div id="tempRecipients">${temps}</div><div class="recipient-add"><input id="newRecipient" class="input" type="email" placeholder="otro.correo@empresa.com"><button class="btn secondary" onclick="addRecipient()">Agregar</button></div><label class="save-default"><input id="saveDefault" type="checkbox"> Guardar como destinatario predeterminado</label></section><section class="card"><div class="row between wrap"><label class="label" style="margin:0">Asunto</label><button class="btn ghost small" onclick="editDefaultMailSubject()">Modificar asunto predeterminado</button></div><input id="mailSubject" class="input" value="${defaultSubject.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"><div class="row between wrap" style="margin-top:14px"><label class="label" style="margin:0">Cuerpo del correo</label><button class="btn ghost small" onclick="editDefaultMailBody()">Modificar cuerpo predeterminado</button></div><textarea id="mailBody" class="input mail-body">${defaultBody.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea><div class="attachment"><div class="pdf-icon">PDF</div><div><b>${reportPdfName()}</b><small>El PDF se guarda aparte para que el Analista lo adjunte al correo.</small></div></div><button class="btn primary block" onclick="reviewEmail()">Revisar antes de abrir el correo</button></section>`,'tablaSemanal');
+}
+function editDefaultMailSubject(){
+  modal(`<h3>Modificar asunto predeterminado</h3><p class="muted">Puede usar <b>{semana}</b> y <b>{anio}</b>; se reemplazarán automáticamente al preparar cada correo.</p><input id="defaultMailSubjectEditor" class="input" value="${String(state.defaultMailSubject||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveDefaultMailSubject()">Guardar predeterminado</button></div>`);
+}
+function saveDefaultMailSubject(){
+  const value=$('#defaultMailSubjectEditor').value.trim();
+  if(!value)return toast('El asunto predeterminado no puede estar vacío');
+  state.defaultMailSubject=value;save();closeModal();render();toast('Asunto predeterminado actualizado');
+}
+function editDefaultMailBody(){
+  const safe=String(state.defaultMailBody||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  modal(`<h3>Modificar cuerpo predeterminado</h3><p class="muted">Puede usar <b>{semana}</b> y <b>{anio}</b>; se reemplazarán automáticamente al preparar cada correo.</p><textarea id="defaultMailBodyEditor" class="input mail-body">${safe}</textarea><div class="row" style="margin-top:14px"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveDefaultMailBody()">Guardar predeterminado</button></div>`);
+}
+function saveDefaultMailBody(){
+  const value=$('#defaultMailBodyEditor').value.trim();
+  if(!value)return toast('El cuerpo predeterminado no puede estar vacío');
+  state.defaultMailBody=value;save();closeModal();render();toast('Cuerpo predeterminado actualizado');
 }
 function addRecipient(){
   const inp=$('#newRecipient'),email=inp.value.trim().toLowerCase();
