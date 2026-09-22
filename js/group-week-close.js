@@ -27,22 +27,22 @@ function confirmDeleteEmptyWeek(){
   state.currentWeek=Math.max(1,deletedWeek-1);
   save();closeModal();state.view='grupo';render();toast('Semana '+deletedWeek+' eliminada');
 }
-function unequalSampleTurns(){
+function unresolvedCurrentTurn(){
   if(typeof ensureSampleTurns==='function')ensureSampleTurns();
-  let people=state.people||[];if(!people.length)return null;
-  let turns=people.map(p=>Number(p.sampleTurn)||0),min=Math.min(...turns),max=Math.max(...turns);
-  if(min===max)return null;
-  return {min,max,pending:people.filter(p=>(Number(p.sampleTurn)||0)<max)};
+  const people=state.people||[];if(!people.length)return null;
+  const turn=typeof currentGroupSampleTurn==='function'?currentGroupSampleTurn():Math.max(1,Number(state.weekOperationalSampleTurn)||1);
+  const pending=people.filter(p=>Number(p.turnoInicio||1)<=turn&&Number(p.sampleTurn||0)<turn);
+  return pending.length?{turn,pending}:null;
 }
-function showUnequalTurns(info){
-  let rows=info.pending.map(p=>`<div class="row between" style="padding:7px 0;border-bottom:1px solid #eee"><span>${p.name}</span><b>Turno ${Number(p.sampleTurn)||0}</b></div>`).join('');
-  modal(`<h3>No se puede cerrar la semana</h3><p>Todos los sembradores deben quedar en el <b>mismo turno de muestra</b> antes de cerrar.</p><p>Hay <b>${info.pending.length}</b> sembrador${info.pending.length===1?'':'es'} pendiente${info.pending.length===1?'':'s'} de nivelar hasta el turno ${info.max}.</p><div style="max-height:220px;overflow:auto">${rows}</div><p class="muted">Evalúe a cada persona pendiente o registre <b>No realizar muestra</b>. Esta validación seguirá apareciendo mientras los turnos sean diferentes.</p><button class="btn primary block" onclick="closeModal()">Resolver pendientes</button>`);
+function showUnresolvedCurrentTurn(info){
+  let rows=info.pending.map(p=>`<div class="row between" style="padding:7px 0;border-bottom:1px solid #eee"><span>${p.name}</span><b>Pendiente turno ${info.turn}</b></div>`).join('');
+  modal(`<h3>No se puede cerrar la semana</h3><p>Antes de cerrar, todos los sembradores que participan en el <b>turno de muestra ${info.turn}</b> deben resolver ese turno.</p><p>Hay <b>${info.pending.length}</b> sembrador${info.pending.length===1?'':'es'} pendiente${info.pending.length===1?'':'s'}.</p><div style="max-height:220px;overflow:auto">${rows}</div><p class="muted">Los turnos en los que una persona estuvo retirada no se consideran pendientes y no se registran como <b>No realizar muestra</b>.</p><button class="btn primary block" onclick="closeModal()">Resolver pendientes</button>`);
 }
 function askCloseGroupWeek(){
   if(groupWeekIsClosed())return closedWeekMessage();
-  let unequal=unequalSampleTurns();if(unequal)return showUnequalTurns(unequal);
+  let unresolved=unresolvedCurrentTurn();if(unresolved)return showUnresolvedCurrentTurn(unresolved);
   if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
-  let turn=(state.people&&state.people.length)?(Number(state.people[0].sampleTurn)||0):0;
+  let turn=Math.max(0,(typeof currentGroupSampleTurn==='function'?currentGroupSampleTurn():Number(state.weekOperationalSampleTurn)||1)-1);
   let goal=30;
   if(turn<goal){
     let missing=goal-turn;
@@ -51,7 +51,7 @@ function askCloseGroupWeek(){
   modal(`<h3>¿Está seguro que quiere cerrar la Semana ${state.currentWeek}?</h3><p>Todos los sembradores están nivelados y han completado los <b>${goal} turnos de muestra</b>.</p><p>Si cierra la semana, podrá <b>ver la información</b>, pero no podrá modificarla.</p><div class="card" style="margin:12px 0"><b>Correcciones después del cierre</b><p class="muted" style="margin-bottom:0">Si necesita modificar algo, debe comunicarse con el <b>Analista</b> para que le habilite temporalmente la modificación. Esto solo será posible <b>antes de crear la nueva semana</b>. Una vez creada la siguiente semana, ni el Analista podrá habilitar modificaciones sobre esta semana.</p></div><div class="row"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn danger" onclick="confirmCloseGroupWeek()">Cerrar semana</button></div>`);
 }
 async function confirmCloseGroupWeek(){
-  let unequal=unequalSampleTurns();if(unequal)return showUnequalTurns(unequal);
+  let unresolved=unresolvedCurrentTurn();if(unresolved)return showUnresolvedCurrentTurn(unresolved);
   if(!weekHasReviewedSample())return showWeekWithoutReviewedSamples();
   if(!window.SiembraApi||typeof SiembraApi.closeWeek!=='function')return toast('No se pudo conectar con el servicio de cierre');
   let weekId=Number(state.currentAzureWeekId)||0;
