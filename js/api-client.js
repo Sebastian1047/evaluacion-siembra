@@ -1,6 +1,6 @@
 // Punto único de comunicación entre el frontend y el backend de Evaluación de Siembra.
 (function () {
-  const API_BASE_URL = 'https://evaluacion-siembra-api-dev-gcfcawa0fmfgdcas.centralus-01.azurewebsites.net';
+  const API_BASE_URL = 'https://evaluacion-siembra.onrender.com';
   async function request(path, options = {}) {const response=await fetch(`${API_BASE_URL}${path}`,{...options,headers:{Accept:'application/json',...(options.headers||{})}});if(!response.ok){let detail='';try{const body=await response.json();detail=body.detail||body.error||'';}catch(_){}throw new Error(detail||`Error HTTP ${response.status}`);}return response.json();}
   const getItems=()=>request('/api/items');
   const getLatestWeek=()=>request('/api/semanas/ultima');
