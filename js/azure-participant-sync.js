@@ -54,12 +54,14 @@
         added.azureParticipationId=participant.IdParticipacion;
         added.turnoInicio=Number(participant.TurnoInicio)||turnoOperativo;
         added.ultimoTurnoIncorporacion=turnoOperativo;
-        // Incorporar a una persona mientras el grupo está por iniciar el turno N no significa
-        // que haya perdido N-1 muestras. Su primera evaluación será en N y conserva la meta
-        // semanal completa; sampleTurn solo representa turnos realmente resueltos por ella.
-        added.sampleTurn=Math.max(0,Number(added.done)||0);
+        // Si se incorpora en el turno N, los N-1 turnos anteriores ya no son
+        // oportunidades de muestra para esta persona. No se crean resoluciones ficticias:
+        // turnoInicio conserva desde cuándo participa y sampleTurn queda en N-1 como cursor.
+        added.sampleTurn=Math.max(0,turnoOperativo-1);
         added.originalRequired=30;
-        added.required=30;
+        added.required=typeof refreshEffectiveEvaluationTarget==='function'
+          ? refreshEffectiveEvaluationTarget(added)
+          : Math.max(Number(added.done)||0,30-(Math.max(1,Number(added.turnoInicio)||turnoOperativo)-1));
         state.weekOperationalSampleTurn=turnoOperativo;
         save();render();
       }
