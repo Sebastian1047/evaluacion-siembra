@@ -21,10 +21,15 @@
   async function loadWeekCatalog(){
     reportableWeeks=await SiembraApi.getReportableWeeks();
     if(!Array.isArray(reportableWeeks))reportableWeeks=[];
-    const valid=reportableWeeks.some(x=>Number(x.AnioEvaluacion)===Number(state.tableYear)&&Number(x.NumeroSemana)===Number(state.tableWeek));
-    if(!valid&&reportableWeeks.length){
-      state.tableYear=Number(reportableWeeks[0].AnioEvaluacion);
-      state.tableWeek=Number(reportableWeeks[0].NumeroSemana);
+    // Al abrir el informe siempre se muestra la semana cerrada reportable más reciente.
+    // El selector sigue permitiendo consultar cualquier semana histórica disponible.
+    if(reportableWeeks.length){
+      const latest=[...reportableWeeks].sort((a,b)=>
+        Number(b.AnioEvaluacion)-Number(a.AnioEvaluacion) ||
+        Number(b.NumeroSemana)-Number(a.NumeroSemana)
+      )[0];
+      state.tableYear=Number(latest.AnioEvaluacion);
+      state.tableWeek=Number(latest.NumeroSemana);
       save();
     }
   }
