@@ -11,8 +11,11 @@ if(!state.sampleTurnOmissions)state.sampleTurnOmissions=[];
 if(!state.manualSampleTurnControl){state.weekOperationalSampleTurn=1;state.manualSampleTurnControl=true;save();}
 function effectiveEvaluationTarget(p){
   const done=Math.max(0,Number(p&&p.done)||0);
-  const elapsed=Math.max(0,Number(p&&p.sampleTurn)||0);
-  return Math.max(done,Math.min(30,30-elapsed+done));
+  const startTurn=Math.max(1,Number(p&&p.turnoInicio)||1);
+  const resolvedSinceEntry=Math.max(0,(Number(p&&p.sampleTurn)||0)-startTurn+1);
+  const missedSinceEntry=Math.max(0,resolvedSinceEntry-done);
+  const turnsBeforeEntry=startTurn-1;
+  return Math.max(done,Math.min(30,30-turnsBeforeEntry-missedSinceEntry));
 }
 window.effectiveEvaluationTarget=effectiveEvaluationTarget;
 function refreshEffectiveEvaluationTarget(p){
