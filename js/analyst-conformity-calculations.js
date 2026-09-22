@@ -92,4 +92,10 @@
     try{await loadWeekCatalog();await loadSelectedReport();}catch(e){console.error(e);loadError='No fue posible cargar las semanas de informe desde Azure.';}
     loading=false;renderReport();
   };
+
+  // app.js puede restaurar tablaSemanal antes de que este módulo termine de cargar.
+  // Si el usuario recarga estando en el informe, ejecutar inmediatamente la
+  // implementación vigente para sustituir la pantalla transitoria sin exigir
+  // otro clic en la navegación.
+  if(state.view==='tablaSemanal') window.weeklyTable();
 })();
