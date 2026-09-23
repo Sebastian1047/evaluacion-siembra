@@ -37,9 +37,19 @@
     const sw=selectedWeek();
     reportRows=sw?await SiembraApi.getConformityReport(sw.IdSemana):[];
     if(!Array.isArray(reportRows))reportRows=[];
-    const eligible=reportableWeeks
-      .filter(x=>Number(x.AnioEvaluacion)===Number(state.tableYear)&&Number(x.NumeroSemana)<=Number(state.tableWeek))
-      .sort((a,b)=>Number(b.NumeroSemana)-Number(a.NumeroSemana)).slice(0,4).reverse();
+    // Resumen grupal: últimas 4 semanas CERRADAS con evaluaciones reales.
+    // No exige consecutividad: las semanas NO_EVALUADA no pertenecen al
+    // catálogo reportable y, por tanto, se saltan naturalmente.
+    // Se deduplica por año+semana para impedir filas/barras repetidas.
+    const uniqueReportable=[...new Map(reportableWeeks.map(w=>[
+      Number(w.AnioEvaluacion)+'-'+Number(w.NumeroSemana),w
+    ])).values()];
+    const selectedKey=Number(state.tableYear)*100+Number(state.tableWeek);
+    const eligible=uniqueReportable
+      .filter(w=>Number(w.AnioEvaluacion)*100+Number(w.NumeroSemana)<=selectedKey)
+      .sort((a,b)=>Number(b.AnioEvaluacion)-Number(a.AnioEvaluacion)||Number(b.NumeroSemana)-Number(a.NumeroSemana))
+      .slice(0,4)
+      .reverse();
     weeklyConformity=[];
     for(const w of eligible){
       const rows=Number(w.IdSemana)===Number(sw?.IdSemana)?reportRows:await SiembraApi.getConformityReport(w.IdSemana);
