@@ -29,7 +29,8 @@
     'js/test-mode-week-control.js?v=20260918-5',
     'js/azure-participant-sync.js?v=20260921-new-worker-full-target',
     'js/azure-participant-state.js?v=20260917-1',
-    'js/azure-evaluation-sync.js?v=20260916-1'
+    'js/azure-evaluation-sync.js?v=20260916-1',
+    'js/person-evaluation-table.js?v=20260923-1'
   ];
 
   for (const src of scripts) {
