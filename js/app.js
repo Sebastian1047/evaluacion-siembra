@@ -15,7 +15,7 @@ if(!state.historyFailures) state.historyFailures={
   p3:[{week:36,sample:2,criterion:'c7'},{week:36,sample:5,criterion:'c4'},{week:36,sample:7,criterion:'c9'},{week:35,sample:10,criterion:'c1'}],
   p4:[{week:36,sample:6,criterion:'c3'},{week:33,sample:9,criterion:'c10'}]
 };
-const save=()=>localStorage.setItem('siembraProto',JSON.stringify(state));
+let save=()=>localStorage.setItem('siembraProto',JSON.stringify(state));
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
 function modal(html){$('#modal-root').innerHTML=`<div class="modalback" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`} function closeModal(){$('#modal-root').innerHTML=''}
 function layout(content,active='grupo'){return `<div class="shell"><header class="top"><div><div class="brand">Evaluación de siembra</div><div class="role">${state.role==='monitor'?'Asegurador de calidad':'Analista · prototipo'}</div></div><button class="btn ghost small" onclick="logout()">Salir</button></header>${state.role?nav(active):''}<main>${content}</main></div>`}
