@@ -12,9 +12,9 @@
   const closeWeek=(semanaId,{usuarioCorporativoId=null}={})=>request('/api/semanas/'+semanaId+'/cerrar',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuarioCorporativoId})});
   const getParticipants=semanaId=>request(`/api/semanas/${semanaId}/participantes`);
   const getOperationalState=semanaId=>request(`/api/semanas/${semanaId}/estado-operativo`);
-  const addParticipant=(semanaId,{sembradorId,turnoInicio})=>request(`/api/semanas/${semanaId}/participantes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sembradorId,turnoInicio})});
+  const addParticipant=(semanaId,{sembradorId,turnoInicio,registradoEn=null})=>request(`/api/semanas/${semanaId}/participantes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sembradorId,turnoInicio,registradoEn})});
   const changeParticipantState=(participacionId,estado,turnoOperativo)=>request(`/api/participaciones/${participacionId}/estado`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado,turnoOperativo})});
-  const resolveTurn=(participacionId,turno,{tipo,incumplimientos=[],usuarioCorporativoId})=>request(`/api/participaciones/${participacionId}/turnos/${turno}/resolver`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipo,incumplimientos,usuarioCorporativoId})});
+  const resolveTurn=(participacionId,turno,{tipo,incumplimientos=[],usuarioCorporativoId,registradoEn=null})=>request(`/api/participaciones/${participacionId}/turnos/${turno}/resolver`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipo,incumplimientos,usuarioCorporativoId,registradoEn})});
   const getNoncomplianceHistory=()=>request('/api/historial-incumplimientos');
   const getCorrectionAuthorizations=semanaId=>request('/api/semanas/'+semanaId+'/autorizaciones-correccion');
   const authorizeCorrection=(resolucionId,data)=>request('/api/resoluciones/'+resolucionId+'/autorizaciones-correccion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
