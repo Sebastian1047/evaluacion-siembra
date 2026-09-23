@@ -27,6 +27,7 @@ async function ensureEvaluationItems(pool){
     IF NOT EXISTS(SELECT 1 FROM dbo.ItemEvaluacion WHERE Codigo='c11')
       INSERT dbo.ItemEvaluacion(Codigo,Nombre,EsCritico,Activo,Orden) VALUES('c11','Conteo de líneas',0,1,11);
     ELSE UPDATE dbo.ItemEvaluacion SET Nombre='Conteo de líneas',Activo=1,Orden=11 WHERE Codigo='c11';
+    UPDATE dbo.ItemEvaluacion SET EsCritico=0;
   `);
 }
 
