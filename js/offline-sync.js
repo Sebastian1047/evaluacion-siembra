@@ -128,7 +128,7 @@
     const e={id:'e'+Date.now(),person:p.id,personId:p.id,week:state.currentWeek,year:state.currentYear,turn:info.next,sampleTurn:info.next,failures:[...ids],fails:[...ids],failed:[...ids],score:Math.max(0,100-ids.length*8),synced:false,date:new Date().toLocaleString('es-CO')};
     state.evals.push(e);p.sampleTurn=info.next;if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);
     enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'EVALUACION',failures:[...ids],localEvalId:e.id,recordedAt:new Date().toISOString()});
-    state.view='seguimiento';save();render();toast('Evaluación guardada localmente · pendiente de sincronización');
+    state.selectedPerson=null;state.view='grupo';save();render();toast('Evaluación guardada localmente · pendiente de sincronización');
   };
 
   // Incorporación/reincorporación: no exige Internet.
