@@ -4,6 +4,15 @@
   function open(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
   async function put(value){const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(value,KEY);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}
   async function get(){const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly'),r=tx.objectStore(STORE).get(KEY);r.onsuccess=()=>{db.close();resolve(r.result||null)};r.onerror=()=>{db.close();reject(r.error)}})}
+  function applyWorkers(){
+    if(typeof empleadosReales==='undefined'||!Array.isArray(empleadosReales))return;
+    const current=new Set((state.people||[]).map(p=>String(p.doc)));
+    const previous=new Map((state.available||[]).map(p=>[String(p.doc),p]));
+    state.available=empleadosReales.filter(e=>!current.has(String(e.codigo))).map(e=>{
+      const old=previous.get(String(e.codigo));
+      return old?{...old,name:e.nombre,doc:e.codigo,area:e.area}:{id:'emp-'+e.codigo,name:e.nombre,doc:e.codigo,area:e.area};
+    });
+  }
   function applyItems(data){
     const items=(data&&data.items)||[];if(!items.length)return;
     window.SiembraAzureItemIds=Object.fromEntries(items.map(i=>[String(i.codigo),Number(i.id)]));
@@ -13,10 +22,10 @@
     async refresh(){
       if(!window.SiembraApi||typeof SiembraApi.getOfflineBootstrap!=='function')return null;
       const data=await SiembraApi.getOfflineBootstrap();await put(data);applyItems(data);
-      state.offlineDataUpdatedAt=data.generatedAt||new Date().toISOString();save();return data;
+      applyWorkers();window.SiembraOfflineServerData=data;state.offlineDataUpdatedAt=data.generatedAt||new Date().toISOString();save();return data;
     },
     async get(){return get()},
-    async applyCached(){const data=await get();if(data){applyItems(data);window.SiembraOfflineServerData=data}return data}
+    async applyCached(){const data=await get();if(data){applyItems(data);applyWorkers();window.SiembraOfflineServerData=data}return data}
   };
   // Primero deja disponible cualquier paquete anterior. Si hay red, luego lo renueva.
   SiembraOfflineBootstrap.applyCached().finally(()=>{
