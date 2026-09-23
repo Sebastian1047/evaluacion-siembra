@@ -35,7 +35,7 @@
     'js/remove-group-item-button.js?v=20260911-1',
     'js/remove-adjust-required.js?v=20260911-1',
     'js/remove-demo-evaluations.js?v=20260916-3',
-    'js/save-return-group.js?v=20260911-1',
+    'js/save-return-group.js?v=20260923-return-group-3',
     'js/group-pagination.js?v=20260911-1',
     'js/week-lifecycle.js?v=20260912-1',
     'js/calendar-week-control.js?v=20260916-1',
@@ -47,7 +47,7 @@
     'js/person-evaluation-table.js?v=20260923-1',
     'js/authorization-by-person.js?v=20260923-1',
     'js/week-calendar-expiry.js?v=20260923-1',
-    'js/offline-sync.js?v=20260923-return-group-2'
+    'js/offline-sync.js?v=20260923-return-group-3'
   ];
 
   for(const src of scripts)await loadScript(src);
