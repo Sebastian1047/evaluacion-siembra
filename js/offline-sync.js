@@ -180,5 +180,20 @@
     };
   }
 
+  // offline-sync carga al final y reemplaza commitEval. Mantener explícitamente
+  // el contrato de navegación: un guardado exitoso siempre termina en Grupo.
+  const offlineCommitEvalReturnGroup=window.commitEval;
+  window.commitEval=function(ids){
+    const p=current(),beforeDone=p?Number(p.done):null;
+    const result=offlineCommitEvalReturnGroup(ids);
+    if(p&&Number(p.done)>beforeDone){
+      state.selectedPerson=null;
+      state.view='grupo';
+      save();
+      render();
+    }
+    return result;
+  };
+
   refreshPending();save();setTimeout(()=>{if(state.role==='monitor')render()},0);
 })();
