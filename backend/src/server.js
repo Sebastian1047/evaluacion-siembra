@@ -47,6 +47,25 @@ app.get('/api/historial-incumplimientos',async(_req,res,next)=>{try{
   `);
   res.json(r.recordset);
 }catch(e){next(e);}});
+app.get('/api/offline/bootstrap',async(_req,res,next)=>{try{
+  const p=await getPool();await ensureParticipationIntervals(p);
+  const items=(await p.request().query("SELECT IdItem AS id,Codigo AS codigo,Nombre AS nombre,EsCritico AS esCritico,Activo AS activo,Orden AS orden FROM dbo.ItemEvaluacion WHERE Activo=1 ORDER BY Orden,IdItem")).recordset;
+  const weeks=(await p.request().query("SELECT TOP (8) IdSemana,AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado,FechaCierre FROM dbo.SemanaEvaluacion ORDER BY AnioEvaluacion DESC,NumeroSemana DESC,IdSemana DESC")).recordset;
+  const ids=weeks.map(w=>Number(w.IdSemana)).filter(Boolean);
+  let operational=[];
+  if(ids.length){
+    operational=(await p.request().query(`SELECT ps.IdSemana,ps.IdParticipacion,ps.SembradorCorporativoId,ps.TurnoInicio,ps.Estado,
+      rt.IdResolucion,rt.NumeroTurno,rt.Tipo,rt.ResueltoEn,e.IdEvaluacion,i.Codigo AS CodigoItem
+      FROM dbo.ParticipacionSemanal ps
+      LEFT JOIN dbo.ResolucionTurno rt ON rt.IdParticipacion=ps.IdParticipacion
+      LEFT JOIN dbo.Evaluacion e ON e.IdResolucion=rt.IdResolucion
+      LEFT JOIN dbo.Incumplimiento inc ON inc.IdEvaluacion=e.IdEvaluacion
+      LEFT JOIN dbo.ItemEvaluacion i ON i.IdItem=inc.IdItem
+      WHERE ps.IdSemana IN (${ids.join(',')})
+      ORDER BY ps.IdSemana DESC,ps.IdParticipacion,rt.NumeroTurno,i.Orden,i.IdItem`)).recordset;
+  }
+  res.json({generatedAt:new Date().toISOString(),items,weeks,operational});
+}catch(e){next(e);}});
 app.get('/api/semanas/ultima', async(_req,res,next)=>{try{const p=await getPool();const r=await p.request().query(`SELECT TOP (1) * FROM dbo.SemanaEvaluacion ORDER BY AnioEvaluacion DESC, NumeroSemana DESC, IdSemana DESC`);if(!r.recordset[0])return res.status(404).json({error:'No hay semanas registradas'});res.json(r.recordset[0]);}catch(e){next(e);}});
 app.get('/api/semanas/:anio(\\d+)/:numero(\\d+)', async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,req.params.anio).input('numero',sql.TinyInt,req.params.numero).query('SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero');if(!r.recordset[0])return res.status(404).json({error:'Semana no encontrada'});res.json(r.recordset[0]);}catch(e){next(e);}});
 app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,inicio,fin}=req.body;const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,anio).input('numero',sql.TinyInt,numero).input('inicio',sql.Date,inicio).input('fin',sql.Date,fin).query(`IF NOT EXISTS(SELECT 1 FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero) INSERT dbo.SemanaEvaluacion(AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado) VALUES(@anio,@numero,@inicio,@fin,'ABIERTA'); SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero;`);res.status(201).json(r.recordset[0]);}catch(e){next(e);}});
