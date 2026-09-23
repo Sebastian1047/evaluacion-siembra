@@ -31,6 +31,22 @@ app.get('/api/semanas-reportables', async(_req,res,next)=>{try{
   `);
   res.json(r.recordset);
 }catch(e){next(e);}});
+app.get('/api/historial-incumplimientos',async(_req,res,next)=>{try{
+  const p=await getPool();
+  const r=await p.request().query(`
+    SELECT s.IdSemana,s.AnioEvaluacion,s.NumeroSemana,
+      ps.SembradorCorporativoId,rt.NumeroTurno,e.IdEvaluacion,
+      i.IdItem,i.Codigo AS CodigoItem,i.Nombre AS NombreItem
+    FROM dbo.Incumplimiento inc
+    JOIN dbo.Evaluacion e ON e.IdEvaluacion=inc.IdEvaluacion
+    JOIN dbo.ResolucionTurno rt ON rt.IdResolucion=e.IdResolucion
+    JOIN dbo.ParticipacionSemanal ps ON ps.IdParticipacion=rt.IdParticipacion
+    JOIN dbo.SemanaEvaluacion s ON s.IdSemana=ps.IdSemana
+    JOIN dbo.ItemEvaluacion i ON i.IdItem=inc.IdItem
+    ORDER BY s.AnioEvaluacion DESC,s.NumeroSemana DESC,ps.SembradorCorporativoId,rt.NumeroTurno DESC,i.Orden,i.IdItem
+  `);
+  res.json(r.recordset);
+}catch(e){next(e);}});
 app.get('/api/semanas/ultima', async(_req,res,next)=>{try{const p=await getPool();const r=await p.request().query(`SELECT TOP (1) * FROM dbo.SemanaEvaluacion ORDER BY AnioEvaluacion DESC, NumeroSemana DESC, IdSemana DESC`);if(!r.recordset[0])return res.status(404).json({error:'No hay semanas registradas'});res.json(r.recordset[0]);}catch(e){next(e);}});
 app.get('/api/semanas/:anio(\\d+)/:numero(\\d+)', async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,req.params.anio).input('numero',sql.TinyInt,req.params.numero).query('SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero');if(!r.recordset[0])return res.status(404).json({error:'Semana no encontrada'});res.json(r.recordset[0]);}catch(e){next(e);}});
 app.post('/api/semanas/asegurar', async(req,res,next)=>{try{const {anio,numero,inicio,fin}=req.body;const p=await getPool();const r=await p.request().input('anio',sql.SmallInt,anio).input('numero',sql.TinyInt,numero).input('inicio',sql.Date,inicio).input('fin',sql.Date,fin).query(`IF NOT EXISTS(SELECT 1 FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero) INSERT dbo.SemanaEvaluacion(AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado) VALUES(@anio,@numero,@inicio,@fin,'ABIERTA'); SELECT * FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=@anio AND NumeroSemana=@numero;`);res.status(201).json(r.recordset[0]);}catch(e){next(e);}});
