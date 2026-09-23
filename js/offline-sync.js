@@ -22,12 +22,12 @@
     if(!w.start||!w.end)throw new Error('La semana local no tiene fechas calendario para sincronizar');
     return SiembraApi.ensureWeek({anio:w.year,numero:w.week,inicio:w.start,fin:w.end});
   }
-  async function ensureParticipant(w,doc,turnoInicio){
+  async function ensureParticipant(w,doc,turnoInicio,registradoEn){
     const week=await ensureAzureWeek(w);
     const weekId=Number(week.IdSemana);
     const existing=(await SiembraApi.getParticipants(weekId)).find(x=>String(x.SembradorCorporativoId)===String(doc));
     let part=existing;
-    if(!part)part=await SiembraApi.addParticipant(weekId,{sembradorId:String(doc),turnoInicio:Number(turnoInicio)||1,registradoEn:new Date().toISOString()});
+    if(!part)part=await SiembraApi.addParticipant(weekId,{sembradorId:String(doc),turnoInicio:Number(turnoInicio)||1,registradoEn:registradoEn||new Date().toISOString()});
     const local=localPersonByDoc(doc);
     if(local){local.azureParticipationId=Number(part.IdParticipacion);local.turnoInicio=Number(part.TurnoInicio)||Number(turnoInicio)||1}
     if(Number(w.year)===Number(state.currentYear)&&Number(w.week)===Number(state.currentWeek))state.currentAzureWeekId=weekId;
@@ -36,16 +36,16 @@
   async function syncOne(op){
     const p=op.payload||{},w=p.week;
     if(op.type==='ADD_PARTICIPANT'){
-      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio);
+      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio,p.recordedAt||op.createdAt);
       if(p.rejoin&&String(part.Estado)!=='EN_LA_SEMANA')await SiembraApi.changeParticipantState(Number(part.IdParticipacion),'EN_LA_SEMANA',Number(p.turnoInicio)||1);
       return;
     }
     if(op.type==='REMOVE_PARTICIPANT'){
-      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio);
+      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio,p.recordedAt||op.createdAt);
       await SiembraApi.changeParticipantState(Number(part.IdParticipacion),'QUITADO_TEMPORALMENTE',Number(p.turnoOperativo)||1);return;
     }
     if(op.type==='RESOLVE_TURN'){
-      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio);
+      const {part}=await ensureParticipant(w,p.doc,p.turnoInicio,p.recordedAt||op.createdAt);
       const itemIds=[];
       for(const code of (p.failures||[])){
         const id=Number(window.SiembraAzureItemIds?.[String(code)]);
@@ -109,7 +109,7 @@
     const rejoin=!!candidate.removedFromWeek;
     const person={...candidate,required:Number(candidate.lastKnownRequired)||30,done:Number(candidate.lastKnownDone)||0,turnoInicio:rejoin?(Number(candidate.turnoInicio)||1):turn,ultimoTurnoIncorporacion:turn,sampleTurn:Math.max(Number(candidate.lastKnownResolvedTurn)||0,turn-1)};
     delete person.removedFromWeek;state.people.push(person);state.weekOperationalSampleTurn=turn;
-    enqueue('ADD_PARTICIPANT',{week:weekPayload(),doc:person.doc,turnoInicio:turn,rejoin});
+    enqueue('ADD_PARTICIPANT',{week:weekPayload(),doc:person.doc,turnoInicio:turn,rejoin,recordedAt:new Date().toISOString()});
     save();state.view=state.role==='analista'?'gestion':'grupo';render();toast(person.name+' agregado localmente · pendiente de sincronización');
   };
 
@@ -118,7 +118,7 @@
     const turn=typeof currentGroupSampleTurn==='function'?currentGroupSampleTurn():Math.max(1,Number(state.weekOperationalSampleTurn)||1);
     state.people.splice(i,1);
     if(!state.available.some(x=>x.id===p.id))state.available.push({...p,removedFromWeek:true,lastKnownDone:Number(p.done)||0,lastKnownRequired:Number(p.required)||30,lastKnownResolvedTurn:Number(p.sampleTurn)||0});
-    enqueue('REMOVE_PARTICIPANT',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turnoOperativo:turn});
+    enqueue('REMOVE_PARTICIPANT',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turnoOperativo:turn,recordedAt:new Date().toISOString()});
     save();closeModal();state.view='grupo';render();toast(p.name+' fue quitado localmente · pendiente de sincronización');
   };
 
