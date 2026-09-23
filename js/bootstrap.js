@@ -6,7 +6,7 @@
 
   // Este módulo no depende de state y puede restaurar localStorage desde IndexedDB
   // antes de que app.js construya el estado de la sesión.
-  await loadScript('js/offline-storage.js?v=20260923-2');
+  await loadScript('js/offline-storage.js?v=20260923-3');
   if(window.SiembraOfflineStore)await SiembraOfflineStore.restore();
 
   // Los criterios locales permiten arrancar sin red. La consulta Azure es una
@@ -18,7 +18,7 @@
   }
 
   const scripts = [
-    'js/app.js?v=20260922-no-legacy-report',
+    'js/app.js?v=20260923-offline-save',
     'js/monitor-current-ui.js?v=20260916-2',
     'js/empleados-reales.js',
     'js/offline-bootstrap.js?v=20260923-3',
