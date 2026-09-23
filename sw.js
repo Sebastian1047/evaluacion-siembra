@@ -1,7 +1,7 @@
 const CACHE='evaluacion-siembra-shell-v1';
 const APP_SHELL=[
   './','./index.html','./css/styles.css?v=20260915-2','./js/data.js','./js/api-client.js?v=20260923-offline','./js/bootstrap.js?v=20260923-offline',
-  './js/app.js?v=20260922-no-legacy-report','./js/monitor-current-ui.js?v=20260916-2','./js/offline-storage.js?v=20260923-1','./js/offline-bootstrap.js?v=20260923-1','./js/week-options.js','./js/empleados-reales.js',
+  './js/app.js?v=20260922-no-legacy-report','./js/monitor-current-ui.js?v=20260916-2','./js/offline-storage.js?v=20260923-1','./js/offline-bootstrap.js?v=20260923-2','./js/offline-readiness.js?v=20260923-1','./js/week-options.js','./js/empleados-reales.js',
   './js/historial-analista.js?v=20260923-real-azure-history','./js/item-review-quick.js?v=20260918-2','./js/weekly-sample-closure.js?v=20260911-1',
   './js/group-week-close.js?v=20260918-2','./js/person-sample-turns.js?v=20260921-closed-turn-lock','./js/late-entry-turn-edit.js?v=20260920-audit-all-corrections',
   './js/noncompliance-x.js?v=20260915-1','./js/sync-attention.js?v=20260911-2','./js/remove-group-item-button.js?v=20260911-1',
