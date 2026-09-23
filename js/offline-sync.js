@@ -70,6 +70,8 @@
   }
 
   window.doSync=async function(){
+    if(!navigator.onLine){closeModal();render();return toast('Sin conexión · los datos permanecen guardados en la tablet')}
+    if((window.SiembraCriteriaSource==='local-fallback'||window.SiembraCriteriaSource==='local-offline'||!Object.keys(window.SiembraAzureItemIds||{}).length)&&window.SiembraApi){try{await SiembraApi.loadCriteriaIntoSeed()}catch(_){}}
     const items=queue().filter(x=>x.status!=='SYNCED');
     if(!items.length){refreshPending();save();closeModal();render();return toast('Todo está sincronizado')}
     const modalBox=document.querySelector('.modal');if(modalBox)modalBox.innerHTML='<h3>Sincronizando...</h3><p>Enviando '+items.length+' operación(es) pendientes al servidor.</p>';
