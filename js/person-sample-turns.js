@@ -160,10 +160,12 @@ function decorateSampleTurnUI(){
         .filter(o=>o.person===p.id&&Number(o.week)===Number(state.currentWeek)&&(!o.year||Number(o.year)===Number(state.currentYear)))
         .slice().sort((a,b)=>Number(b.turn)-Number(a.turn));
       if(omissions.length){
-        const section=document.createElement('section');section.id='sample-turn-omissions';section.style.marginTop='18px';
-        section.innerHTML=`<h3>Muestras no realizadas</h3>${omissions.map(o=>`<div class="card" style="margin-top:10px"><div class="row between"><div><b>Turno ${o.turn}</b><p style="margin:6px 0 0">Muestra no realizada · Sin evaluación</p></div>${o.synced?'<span class="badge ok">Sincronizada</span>':''}</div></div>`).join('')}`;
-        const evalHeading=[...document.querySelectorAll('h3')].find(h=>(h.textContent||'').trim()==='Evaluaciones registradas');
-        if(evalHeading&&evalHeading.parentNode)evalHeading.parentNode.insertBefore(section,evalHeading);
+        const section=document.createElement('section');section.id='sample-turn-omissions';section.className='card';section.style.marginTop='18px';
+        const rows=omissions.map(o=>`<tr><td><b>${o.turn}</b></td><td>Muestra no realizada</td><td>Sin evaluación</td><td><span class="badge ${o.synced?'':'warn'}">${o.synced?'Sincronizada':'Pendiente'}</span></td></tr>`).join('');
+        section.innerHTML=`<div class="row between wrap" style="margin-bottom:10px"><div><h3 style="margin:0 0 4px">Muestras no realizadas</h3><p class="muted small" style="margin:0">Turnos resueltos sin realizar una evaluación.</p></div><span class="badge">${omissions.length} muestra${omissions.length===1?'':'s'}</span></div><div class="table-scroll"><table class="failure-table"><thead><tr><th>Turno</th><th>Registro</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        // La evaluación real es la información principal: esta tabla siempre va después.
+        const evalTable=document.querySelector('.person-evaluation-table-card');
+        if(evalTable)evalTable.insertAdjacentElement('afterend',section);
         else hero.insertAdjacentElement('afterend',section);
       }
     }
