@@ -1,18 +1,29 @@
-// Arranque controlado: primero carga/adapta los ítems y solo después ejecuta la aplicación.
+// Arranque offline-first: restaura datos locales antes de iniciar la aplicación y nunca exige red para abrir.
 (async function () {
-  await SiembraApi.loadCriteriaIntoSeed();
+  async function loadScript(src){
+    return new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(script)});
+  }
+
+  // Este módulo no depende de state y puede restaurar localStorage desde IndexedDB
+  // antes de que app.js construya el estado de la sesión.
+  await loadScript('js/offline-storage.js?v=20260923-2');
+  if(window.SiembraOfflineStore)await SiembraOfflineStore.restore();
+
+  // Los criterios locales permiten arrancar sin red. La consulta Azure es una
+  // mejora cuando hay cobertura, no una condición de arranque.
+  if(navigator.onLine){
+    await SiembraApi.loadCriteriaIntoSeed().catch(()=>seed.criteria);
+  }else{
+    window.SiembraCriteriaSource='local-offline';
+  }
 
   const scripts = [
     'js/app.js?v=20260922-no-legacy-report',
-    // Instalar inmediatamente la interfaz vigente del Asegurador. Así el HTML
-    // histórico que todavía existe en app.js no permanece visible mientras
-    // terminan de cargar las integraciones posteriores.
     'js/monitor-current-ui.js?v=20260916-2',
-    'js/offline-storage.js?v=20260923-1',
-    'js/offline-bootstrap.js?v=20260923-2',
+    'js/empleados-reales.js',
+    'js/offline-bootstrap.js?v=20260923-3',
     'js/offline-readiness.js?v=20260923-1',
     'js/week-options.js',
-    'js/empleados-reales.js',
     'js/historial-analista.js?v=20260923-real-azure-history',
     'js/item-review-quick.js?v=20260918-2',
     'js/weekly-sample-closure.js?v=20260911-1',
@@ -36,20 +47,13 @@
     'js/person-evaluation-table.js?v=20260923-1',
     'js/authorization-by-person.js?v=20260923-1',
     'js/week-calendar-expiry.js?v=20260923-1',
-    'js/offline-sync.js?v=20260923-1'
+    'js/offline-sync.js?v=20260923-2'
   ];
 
-  for (const src of scripts) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
-      document.body.appendChild(script);
-    });
-  }
-})().catch(error => {
-  console.error('No fue posible iniciar la aplicación.', error);
-  const app = document.querySelector('#app');
-  if (app) app.innerHTML = '<main><section class="card"><h2>No fue posible iniciar la aplicación</h2><p>Actualice la página para volver a intentarlo.</p></section></main>';
+  for(const src of scripts)await loadScript(src);
+  if(window.SiembraInstallOfflinePersistence)SiembraInstallOfflinePersistence();
+})().catch(error=>{
+  console.error('No fue posible iniciar la aplicación.',error);
+  const app=document.querySelector('#app');
+  if(app){app.style.visibility='visible';app.innerHTML='<main><section class="card"><h2>No fue posible iniciar la aplicación</h2><p>Conéctese una vez a Internet para preparar esta tablet y vuelva a intentarlo.</p></section></main>'}
 });
