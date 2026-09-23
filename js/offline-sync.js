@@ -27,7 +27,7 @@
     const weekId=Number(week.IdSemana);
     const existing=(await SiembraApi.getParticipants(weekId)).find(x=>String(x.SembradorCorporativoId)===String(doc));
     let part=existing;
-    if(!part)part=await SiembraApi.addParticipant(weekId,{sembradorId:String(doc),turnoInicio:Number(turnoInicio)||1});
+    if(!part)part=await SiembraApi.addParticipant(weekId,{sembradorId:String(doc),turnoInicio:Number(turnoInicio)||1,registradoEn:new Date().toISOString()});
     const local=localPersonByDoc(doc);
     if(local){local.azureParticipationId=Number(part.IdParticipacion);local.turnoInicio=Number(part.TurnoInicio)||Number(turnoInicio)||1}
     if(Number(w.year)===Number(state.currentYear)&&Number(w.week)===Number(state.currentWeek))state.currentAzureWeekId=weekId;
@@ -52,7 +52,7 @@
         if(!id)throw new Error('No existe IdItem Azure para '+code);
         itemIds.push(id);
       }
-      const result=await SiembraApi.resolveTurn(Number(part.IdParticipacion),Number(p.turn),{tipo:p.tipo,incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba'});
+      const result=await SiembraApi.resolveTurn(Number(part.IdParticipacion),Number(p.turn),{tipo:p.tipo,incumplimientos:itemIds,usuarioCorporativoId:'asegurador-prueba',registradoEn:p.recordedAt||op.createdAt});
       if(p.tipo==='EVALUACION'){
         const e=localEvalById(p.localEvalId);if(e){e.synced=true;e.azureResolutionId=result&&result.idResolucion}
       }else{
@@ -97,7 +97,7 @@
     p.done=(Number(p.done)||0)+1;
     const e={id:'e'+Date.now(),person:p.id,personId:p.id,week:state.currentWeek,year:state.currentYear,turn:info.next,sampleTurn:info.next,failures:[...ids],fails:[...ids],failed:[...ids],score:Math.max(0,100-ids.length*8),synced:false,date:new Date().toLocaleString('es-CO')};
     state.evals.push(e);p.sampleTurn=info.next;if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);
-    enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'EVALUACION',failures:[...ids],localEvalId:e.id});
+    enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'EVALUACION',failures:[...ids],localEvalId:e.id,recordedAt:new Date().toISOString()});
     state.view='seguimiento';save();render();toast('Evaluación guardada localmente · pendiente de sincronización');
   };
 
@@ -125,7 +125,7 @@
   window.confirmOmitCurrentSample=function(){
     const p=current();if(!p)return;const info=canAdvancePerson(p);if(!info.ok){closeModal();return showTurnBlock(p,info)}
     p.sampleTurn=info.next;if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);
-    const op=enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'NO_REALIZADA',failures:[]});
+    const op=enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'NO_REALIZADA',failures:[],recordedAt:new Date().toISOString()});
     if(!Array.isArray(state.sampleTurnOmissions))state.sampleTurnOmissions=[];
     state.sampleTurnOmissions.push({week:state.currentWeek,year:state.currentYear,person:p.id,turn:info.next,date:new Date().toISOString(),synced:false,localSyncId:op.id});
     refreshPending();save();closeModal();state.view='grupo';render();toast('Muestra no realizada guardada localmente · pendiente de sincronización');
