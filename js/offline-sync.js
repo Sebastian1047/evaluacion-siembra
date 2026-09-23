@@ -35,6 +35,10 @@
   }
   async function syncOne(op){
     const p=op.payload||{},w=p.week;
+    if(op.type==='CREATE_WEEK'){
+      const week=await ensureAzureWeek(w);if(Number(w.year)===Number(state.currentYear)&&Number(w.week)===Number(state.currentWeek))state.currentAzureWeekId=Number(week.IdSemana)||null;
+      const rec=state.calendarWeeks&&state.calendarWeeks[w.year+'-w'+w.week];if(rec){rec.azureWeekId=Number(week.IdSemana)||null;delete rec.pendingAzureCreation}return;
+    }
     if(op.type==='ADD_PARTICIPANT'){
       const {part}=await ensureParticipant(w,p.doc,p.turnoInicio,p.recordedAt||op.createdAt);
       if(p.rejoin&&String(part.Estado)!=='EN_LA_SEMANA')await SiembraApi.changeParticipantState(Number(part.IdParticipacion),'EN_LA_SEMANA',Number(p.turnoInicio)||1);
@@ -90,6 +94,29 @@
   window.syncModal=function(){
     refreshPending();save();
     modal('<h3>Sincronización</h3><p><b>'+state.pending+'</b> operación(es) pendientes.</p><p class="muted">Los datos permanecen guardados en este dispositivo hasta que el servidor confirme cada operación.</p><button class="btn primary block" onclick="doSync()">Sincronizar ahora</button>');
+  };
+
+  // Creación de semana: también es local-first. Azure se crea al sincronizar.
+  window.activateTestWeek=async function(yearOverride,weekOverride){
+    const year=Number(yearOverride),week=Number(weekOverride);
+    if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
+    if(typeof currentWeekClosedForCreation==='function'&&!currentWeekClosedForCreation())return toast('Debe cerrar primero la semana actual');
+    const pad=n=>String(n).padStart(2,'0');
+    const firstSunday=y=>{let d=new Date(y,0,1);d.setDate(d.getDate()+((7-d.getDay())%7));return d};
+    const start=firstSunday(year);start.setDate(start.getDate()+(week-1)*7);const end=new Date(start);end.setDate(end.getDate()+6);
+    const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    const previousWeek=state.currentWeek,previousYear=state.currentYear;
+    const closed=state.closedGroupWeeks&&state.closedGroupWeeks['w'+previousWeek];
+    if(closed){closed.editEnabled=false;closed.permanentlyLocked=true;closed.lockedAt=new Date().toISOString()}
+    state.lastAssurerWeek=previousWeek;state.lastAssurerYear=previousYear;
+    state.currentYear=year;state.currentWeek=week;state.currentWeekStart=iso(start);state.currentWeekEnd=iso(end);
+    state.currentAzureWeekId=null;state.weekOperationalSampleTurn=1;state.people=[];state.evals=[];state.sampleTurnOmissions=[];state.selectedPerson=null;
+    const realCatalog=(typeof empleadosReales!=='undefined'&&Array.isArray(empleadosReales))?empleadosReales.map(e=>({id:'emp-'+e.codigo+'w'+year+'-'+week,name:e.nombre,doc:e.codigo,area:e.area})):[];
+    state.available=realCatalog;
+    if(!state.calendarWeeks)state.calendarWeeks={};
+    state.calendarWeeks[year+'-w'+week]={status:'EVALUACION',start:iso(start),end:iso(end),testMode:true,pendingAzureCreation:true};
+    enqueue('CREATE_WEEK',{week:weekPayload(),recordedAt:new Date().toISOString()});
+    save();closeModal();render();toast('Semana '+week+' creada localmente · pendiente de sincronización');
   };
 
   // Evaluaciones: siempre se confirman localmente primero.
