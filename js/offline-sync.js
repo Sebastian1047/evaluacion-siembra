@@ -81,8 +81,9 @@
       refreshPending();save();
     }
     state.syncQueue=queue().filter(x=>x.status!=='SYNCED');refreshPending();save();closeModal();render();
+    if(!failed&&window.SiembraOfflineBootstrap){try{await SiembraOfflineBootstrap.refresh()}catch(e){console.warn('No se pudo renovar el paquete offline después de sincronizar.',e)}}
     if(failed)toast(ok+' sincronizada(s) · '+failed+' pendiente(s)');
-    else toast(ok+' operación(es) sincronizada(s) correctamente');
+    else toast(ok+' operación(es) sincronizada(s) correctamente · datos offline actualizados');
   };
   window.syncModal=function(){
     refreshPending();save();
