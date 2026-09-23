@@ -20,8 +20,8 @@
   window.SiembraInstallOfflinePersistence=function(){
     if(window.__siembraOfflinePersistenceInstalled)return;
     window.__siembraOfflinePersistenceInstalled=true;
-    const originalSave=window.save||save;
-    window.save=save=function(){
+    const originalSave=save;
+    save=function(){
       state.localSavedAt=new Date().toISOString();
       originalSave();
       put(JSON.parse(JSON.stringify(state))).catch(e=>console.warn('No se pudo replicar estado en IndexedDB',e));
