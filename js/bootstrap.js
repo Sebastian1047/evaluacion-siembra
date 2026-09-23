@@ -8,6 +8,7 @@
     // histórico que todavía existe en app.js no permanece visible mientras
     // terminan de cargar las integraciones posteriores.
     'js/monitor-current-ui.js?v=20260916-2',
+    'js/offline-storage.js?v=20260923-1',
     'js/week-options.js',
     'js/empleados-reales.js',
     'js/historial-analista.js?v=20260923-real-azure-history',
