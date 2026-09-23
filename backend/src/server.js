@@ -12,8 +12,26 @@ async function ensureParticipationIntervals(pool){
   if(!r.recordset[0]?.existe) throw new Error('Falta la migración dbo.TramoParticipacion');
 }
 
+async function ensureEvaluationItems(pool){
+  await pool.request().query(`
+    UPDATE dbo.ItemEvaluacion SET Nombre='Planta inclinada' WHERE Codigo='c1';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Distribución' WHERE Codigo='c2';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Estado de planta' WHERE Codigo='c3';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Profundidad de la planta' WHERE Codigo='c4';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Selección de esquejes' WHERE Codigo='c5';
+    UPDATE dbo.ItemEvaluacion SET Nombre='EPPS' WHERE Codigo='c6';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Aseo sitio de trabajo' WHERE Codigo='c7';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Acuerdos de oro' WHERE Codigo='c8';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Siembra con marcador' WHERE Codigo='c9';
+    UPDATE dbo.ItemEvaluacion SET Nombre='Ubicación de mangueras' WHERE Codigo='c10';
+    IF NOT EXISTS(SELECT 1 FROM dbo.ItemEvaluacion WHERE Codigo='c11')
+      INSERT dbo.ItemEvaluacion(Codigo,Nombre,EsCritico,Activo,Orden) VALUES('c11','Conteo de líneas',0,1,11);
+    ELSE UPDATE dbo.ItemEvaluacion SET Nombre='Conteo de líneas',Activo=1,Orden=11 WHERE Codigo='c11';
+  `);
+}
+
 app.get('/api/health', async (_req,res,next)=>{ try { const pool=await getPool(); await pool.request().query('SELECT 1 AS ok'); res.json({ok:true,database:true}); } catch(e){next(e);} });
-app.get('/api/items', async (_req,res,next)=>{try{const p=await getPool();const r=await p.request().query('SELECT IdItem AS id, Codigo AS codigo, Nombre AS nombre, EsCritico AS esCritico, Activo AS activo FROM dbo.ItemEvaluacion WHERE Activo=1 ORDER BY Orden,IdItem');res.json(r.recordset);}catch(e){next(e);}});
+app.get('/api/items', async (_req,res,next)=>{try{const p=await getPool();await ensureEvaluationItems(p);const r=await p.request().query('SELECT IdItem AS id, Codigo AS codigo, Nombre AS nombre, EsCritico AS esCritico, Activo AS activo FROM dbo.ItemEvaluacion WHERE Activo=1 ORDER BY Orden,IdItem');res.json(r.recordset);}catch(e){next(e);}});
 app.get('/api/semanas-reportables', async(_req,res,next)=>{try{
   const p=await getPool();
   const r=await p.request().query(`
@@ -48,7 +66,7 @@ app.get('/api/historial-incumplimientos',async(_req,res,next)=>{try{
   res.json(r.recordset);
 }catch(e){next(e);}});
 app.get('/api/offline/bootstrap',async(_req,res,next)=>{try{
-  const p=await getPool();await ensureParticipationIntervals(p);
+  const p=await getPool();await ensureParticipationIntervals(p);await ensureEvaluationItems(p);
   const items=(await p.request().query("SELECT IdItem AS id,Codigo AS codigo,Nombre AS nombre,EsCritico AS esCritico,Activo AS activo,Orden AS orden FROM dbo.ItemEvaluacion WHERE Activo=1 ORDER BY Orden,IdItem")).recordset;
   const weeks=(await p.request().query("SELECT TOP (8) IdSemana,AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado,FechaCierre FROM dbo.SemanaEvaluacion ORDER BY AnioEvaluacion DESC,NumeroSemana DESC,IdSemana DESC")).recordset;
   const ids=weeks.map(w=>Number(w.IdSemana)).filter(Boolean);
