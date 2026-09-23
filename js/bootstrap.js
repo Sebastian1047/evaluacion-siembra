@@ -31,7 +31,8 @@
     'js/azure-participant-state.js?v=20260917-1',
     'js/azure-evaluation-sync.js?v=20260916-1',
     'js/person-evaluation-table.js?v=20260923-1',
-    'js/authorization-by-person.js?v=20260923-1'
+    'js/authorization-by-person.js?v=20260923-1',
+    'js/week-calendar-expiry.js?v=20260923-1'
   ];
 
   for (const src of scripts) {
