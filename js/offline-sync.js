@@ -128,7 +128,7 @@
     const e={id:'e'+Date.now(),person:p.id,personId:p.id,week:state.currentWeek,year:state.currentYear,turn:info.next,sampleTurn:info.next,failures:[...ids],fails:[...ids],failed:[...ids],score:Math.max(0,100-ids.length*8),synced:false,date:new Date().toLocaleString('es-CO')};
     state.evals.push(e);p.sampleTurn=info.next;if(typeof refreshEffectiveEvaluationTarget==='function')refreshEffectiveEvaluationTarget(p);
     enqueue('RESOLVE_TURN',{week:weekPayload(),doc:p.doc,turnoInicio:p.turnoInicio||1,turn:info.next,tipo:'EVALUACION',failures:[...ids],localEvalId:e.id,recordedAt:new Date().toISOString()});
-    state.selectedPerson=null;state.view='grupo';save();render();toast('Evaluación guardada localmente · pendiente de sincronización');
+    if(typeof window.returnToAssurerGroupAfterSave==='function')window.returnToAssurerGroupAfterSave();else{state.selectedPerson=null;state.view='grupo';save();render()}toast('Evaluación guardada localmente · pendiente de sincronización');
   };
 
   // Incorporación/reincorporación: no exige Internet.
@@ -179,21 +179,6 @@
       enqueue('NO_EVALUADA',{week:weekPayload()});save();closeModal();state.view='grupo';render();toast('Semana marcada no evaluada localmente · pendiente de sincronización');
     };
   }
-
-  // offline-sync carga al final y reemplaza commitEval. Mantener explícitamente
-  // el contrato de navegación: un guardado exitoso siempre termina en Grupo.
-  const offlineCommitEvalReturnGroup=window.commitEval;
-  window.commitEval=function(ids){
-    const p=current(),beforeDone=p?Number(p.done):null;
-    const result=offlineCommitEvalReturnGroup(ids);
-    if(p&&Number(p.done)>beforeDone){
-      state.selectedPerson=null;
-      state.view='grupo';
-      save();
-      render();
-    }
-    return result;
-  };
 
   refreshPending();save();setTimeout(()=>{if(state.role==='monitor')render()},0);
 })();
