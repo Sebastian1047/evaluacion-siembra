@@ -153,7 +153,13 @@
     const activeMinTurn=people.length?Math.min(...people.map(p=>Number(p.sampleTurn)||0)):null;
     const operationalTurn=activeMinTurn!==null?activeMinTurn+1:Math.max(1,maxResolvedTurn+1);
 
-    state.lastAssurerWeek=state.currentWeek; state.lastAssurerYear=state.currentYear;
+    // Al reconstruir una semana existente desde Azure, la "última semana" local
+    // solo es válida si corresponde realmente al período inmediatamente anterior.
+    // El estado histórico del prototipo (36) no debe mostrarse como antecedente de 48.
+    const previousLocalYear=Number(state.currentYear)||0,previousLocalWeek=Number(state.currentWeek)||0;
+    const validPrevious=previousLocalYear===year&&previousLocalWeek===week-1;
+    state.lastAssurerWeek=validPrevious?previousLocalWeek:null;
+    state.lastAssurerYear=validPrevious?previousLocalYear:null;
     state.currentYear=year; state.currentWeek=week; state.currentWeekStart=iso(d.start); state.currentWeekEnd=iso(d.end);
     state.currentAzureWeekId=azureWeek.IdSemana;
     state.weekOperationalSampleTurn=operationalTurn;
