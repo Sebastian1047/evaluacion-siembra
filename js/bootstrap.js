@@ -37,7 +37,7 @@
     'js/remove-demo-evaluations.js?v=20260916-3',
     'js/save-return-group.js?v=20260923-return-group-3',
     'js/group-pagination.js?v=20260911-1',
-    'js/week-lifecycle.js?v=20260912-1',
+    'js/week-lifecycle.js?v=20260924-stale-last-week',
     'js/calendar-week-control.js?v=20260916-1',
     'js/analyst-conformity-calculations.js?v=20260923-eleven-items',
     'js/test-mode-week-control.js?v=20260924-clean-previous',
