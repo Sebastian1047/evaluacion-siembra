@@ -181,9 +181,25 @@
     save(); closeModal(); render(); toast(`Semana ${week} de ${year} ${azureClosed?'cerrada':'abierta'} y reconstruida desde Azure`);
   };
 
+  function localStateNeedsAzureRecovery(){
+    const year=Number(state.currentYear)||0,week=Number(state.currentWeek)||0;
+    const bootstrap=window.SiembraOfflineServerData;
+    const serverWeeks=Array.isArray(bootstrap&&bootstrap.weeks)?bootstrap.weeks:[];
+    if(!year||!week)return true;
+    // Semana 36 es el valor inicial histórico del prototipo. En una instalación
+    // nueva no debe imponerse sobre una semana real más reciente de Azure.
+    if(year===2026&&week===36&&!(state.people||[]).length&&!(state.evals||[]).length)return true;
+    if(serverWeeks.length){
+      const latest=serverWeeks[0];
+      const sy=Number(latest.AnioEvaluacion)||0,sw=Number(latest.NumeroSemana)||0;
+      if(sy>year||(sy===year&&sw>week))return true;
+    }
+    return false;
+  }
+
   async function openLatestAzureWeek(){
     if(window.__latestAzureWeekOpening||window.__latestAzureWeekOpened)return;
-    if(state.role!=='monitor'||state.view!=='grupo')return;
+    if(state.role!=='monitor'||state.view!=='grupo'||!localStateNeedsAzureRecovery())return;
     if(!window.SiembraApi||typeof SiembraApi.getLatestWeek!=='function')return;
     window.__latestAzureWeekOpening=true;
     try{
@@ -191,8 +207,8 @@
       const year=Number(latest.AnioEvaluacion);
       const week=Number(latest.NumeroSemana);
       if(!Number.isInteger(year)||!Number.isInteger(week))throw new Error('Semana Azure inválida');
-      window.__latestAzureWeekOpened=true;
       await window.activateTestWeek(year,week);
+      window.__latestAzureWeekOpened=Number(state.currentYear)===year&&Number(state.currentWeek)===week;
     }catch(error){window.__latestAzureWeekOpened=false;console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);}finally{window.__latestAzureWeekOpening=false;}
   }
 
