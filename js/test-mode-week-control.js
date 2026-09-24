@@ -51,7 +51,7 @@
     save();closeModal();render();toast(`Semana ${week} marcada como no evaluada`);
   };
 
-  window.activateTestWeek=async function(yearOverride,weekOverride){
+  async function rebuildWeekFromAzure(yearOverride,weekOverride){
     const year=Number(yearOverride ?? document.querySelector('#testWeekYear')?.value);
     const week=Number(weekOverride ?? document.querySelector('#testWeekNumber')?.value);
     if(!Number.isInteger(year)||year<2000||year>2200||!Number.isInteger(week)||week<1||week>60)return toast('Ingrese un año y una semana válidos');
@@ -181,6 +181,11 @@
     save(); closeModal(); render(); toast(`Semana ${week} de ${year} ${azureClosed?'cerrada':'abierta'} y reconstruida desde Azure`);
   };
 
+  // Apertura explícita desde Azure. Se mantiene separada de activateTestWeek porque
+  // offline-sync reemplaza esa función para la creación local de semanas nuevas.
+  window.SiembraRebuildWeekFromAzure=rebuildWeekFromAzure;
+  window.activateTestWeek=rebuildWeekFromAzure;
+
   function localStateNeedsAzureRecovery(){
     const year=Number(state.currentYear)||0,week=Number(state.currentWeek)||0;
     const bootstrap=window.SiembraOfflineServerData;
@@ -214,7 +219,7 @@
       // No sobrescribe trabajo local pendiente. Si Azure está por delante (o quedó
       // cargado el estado histórico de Semana 36), reconstruye la semana real.
       if((azureIsNewer||prototype36)&&!hasPending){
-        await window.activateTestWeek(year,week);
+        await window.SiembraRebuildWeekFromAzure(year,week);
       }
       window.__latestAzureWeekOpened=Number(state.currentYear)===year&&Number(state.currentWeek)===week;
     }catch(error){window.__latestAzureWeekOpened=false;console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);}finally{window.__latestAzureWeekOpening=false;}
