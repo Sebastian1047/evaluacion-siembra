@@ -57,11 +57,21 @@ function decorateLastAssurerWeek(){
 
   // Solo DESPUÉS de crear la siguiente semana queda la referencia numérica de la anterior.
   if(state.lastAssurerWeek!=null&&!hero.querySelector('#last-assurer-week')){
+    const lastYear=Number(state.lastAssurerYear)||Number(state.currentYear);
+    const lastWeek=Number(state.lastAssurerWeek);
+    const currentYear=Number(state.currentYear),currentWeek=Number(state.currentWeek);
+    // Una referencia local antigua solo se muestra si realmente corresponde al
+    // período inmediatamente anterior. Evita residuos del prototipo como 36 → 48.
+    const isImmediatePrevious=lastYear===currentYear&&lastWeek===currentWeek-1;
+    if(!isImmediatePrevious){
+      state.lastAssurerWeek=null;state.lastAssurerYear=null;save();
+      return;
+    }
     let note=document.createElement('div');
     note.id='last-assurer-week';
     note.className='muted small';
     note.style.cssText='margin-top:8px';
-    note.textContent='Última semana: '+state.lastAssurerWeek;
+    note.textContent='Última semana: '+lastWeek;
     hero.appendChild(note);
   }
 }
