@@ -296,7 +296,14 @@ async function importWeek49FromFieldSheet(){
       FROM dbo.SemanaEvaluacion s WHERE s.AnioEvaluacion=2026 AND s.NumeroSemana=49`);
     if(existing.recordset[0]){
       const e=existing.recordset[0];
-      if(Number(e.Participantes)===12&&Number(e.Resoluciones)===300){await tx.commit();return;}
+      if(Number(e.Participantes)===12&&Number(e.Resoluciones)===300){
+        await new sql.Request(tx).input('existingWeek49',sql.Int,e.IdSemana).query(
+          "UPDATE dbo.SemanaEvaluacion SET Estado='CERRADA',FechaCierre=COALESCE(FechaCierre,SYSUTCDATETIME()) WHERE IdSemana=@existingWeek49"
+        );
+        await tx.commit();
+        console.log('Semana 49 existente verificada y cerrada: 12 sembradores, 300 evaluaciones.');
+        return;
+      }
       throw new Error('Semana 49 ya existe con datos distintos; importación automática cancelada para no sobrescribirlos.');
     }
     const prior=await new sql.Request(tx).query("SELECT TOP(1) FechaInicio,FechaFin FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=2026 AND NumeroSemana=48");
@@ -335,8 +342,11 @@ async function importWeek49FromFieldSheet(){
         FETCH NEXT FROM cur INTO @sid,@turn,@code;
       END
       CLOSE cur; DEALLOCATE cur;`);
+    await new sql.Request(tx).input('week49',sql.Int,week.IdSemana).query(
+      "UPDATE dbo.SemanaEvaluacion SET Estado='CERRADA',FechaCierre=COALESCE(FechaCierre,SYSUTCDATETIME()) WHERE IdSemana=@week49"
+    );
     await tx.commit();
-    console.log('Semana 49 importada desde planilla: 12 sembradores, 300 evaluaciones.');
+    console.log('Semana 49 importada y cerrada desde planilla: 12 sembradores, 300 evaluaciones.');
   }catch(error){try{await tx.rollback();}catch{}throw error;}
 }
 
