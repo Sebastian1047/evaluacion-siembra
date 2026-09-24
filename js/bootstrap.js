@@ -40,7 +40,7 @@
     'js/week-lifecycle.js?v=20260912-1',
     'js/calendar-week-control.js?v=20260916-1',
     'js/analyst-conformity-calculations.js?v=20260923-eleven-items',
-    'js/test-mode-week-control.js?v=20260924-azure-rebuild',
+    'js/test-mode-week-control.js?v=20260924-clean-previous',
     'js/azure-participant-sync.js?v=20260921-new-worker-full-target',
     'js/azure-participant-state.js?v=20260917-1',
     'js/azure-evaluation-sync.js?v=20260916-1',
