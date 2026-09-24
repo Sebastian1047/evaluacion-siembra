@@ -199,7 +199,7 @@
 
   async function openLatestAzureWeek(){
     if(window.__latestAzureWeekOpening||window.__latestAzureWeekOpened)return;
-    if(state.role!=='monitor'||state.view!=='grupo'||!localStateNeedsAzureRecovery())return;
+    if(state.role!=='monitor'||state.view!=='grupo')return;
     if(!window.SiembraApi||typeof SiembraApi.getLatestWeek!=='function')return;
     window.__latestAzureWeekOpening=true;
     try{
@@ -207,7 +207,15 @@
       const year=Number(latest.AnioEvaluacion);
       const week=Number(latest.NumeroSemana);
       if(!Number.isInteger(year)||!Number.isInteger(week))throw new Error('Semana Azure inválida');
-      await window.activateTestWeek(year,week);
+      const localYear=Number(state.currentYear)||0,localWeek=Number(state.currentWeek)||0;
+      const azureIsNewer=year>localYear||(year===localYear&&week>localWeek);
+      const prototype36=localYear===2026&&localWeek===36;
+      const hasPending=Array.isArray(state.syncQueue)&&state.syncQueue.some(x=>x.status!=='SYNCED');
+      // No sobrescribe trabajo local pendiente. Si Azure está por delante (o quedó
+      // cargado el estado histórico de Semana 36), reconstruye la semana real.
+      if((azureIsNewer||prototype36)&&!hasPending){
+        await window.activateTestWeek(year,week);
+      }
       window.__latestAzureWeekOpened=Number(state.currentYear)===year&&Number(state.currentWeek)===week;
     }catch(error){window.__latestAzureWeekOpened=false;console.error('No fue posible recuperar automáticamente la última semana de Azure.',error);}finally{window.__latestAzureWeekOpening=false;}
   }
