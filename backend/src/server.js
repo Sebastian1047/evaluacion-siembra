@@ -265,6 +265,84 @@ ORDER BY IdAutorizacion DESC`);
 }catch(e){try{await tx.rollback();}catch{}next(e);}});
 
 app.get('/api/reportes/conformidad/:semanaId',async(req,res,next)=>{try{const p=await getPool();const r=await p.request().input('sem',sql.Int,req.params.semanaId).query('EXEC dbo.sp_ConformidadIndividual @IdSemana=@sem');res.json(r.recordset);}catch(e){next(e);}});
+
+async function importWeek49FromFieldSheet(){
+  const pool=await getPool();
+  await ensureEvaluationItems(pool);
+  const workers=[
+    ['092135','GONZALEZ VALENCIA CAROLINA',{}],
+    ['201656','TEHERAN RUIZ LINA PATRICIA',{}],
+    ['027645','CARDONA GALLEGO YESICA ALEXANDRA',{4:'c2'}],
+    ['027487','CARDONA CORREA MARIA VIVIANA',{16:'c2'}],
+    ['207479','GALEANO BEDOYA FRANCY DAYELI',{19:'c1'}],
+    ['019064','GONZALEZ CARDONA ANA SOFIA',{3:'c11'}],
+    ['069522','MEDINA OSPINA ANGIE TATIANA',{6:'c2'}],
+    ['033119','OCAMPO CASTAÑO OLGA LUCIA',{6:'c2'}],
+    ['058785','RAMIREZ URIBE MARIA LILIANA',{8:'c1'}],
+    ['011573','RENDON OTALVARO RUBIELA',{23:'c1'}],
+    ['201652','SUAREZ GARCES LUCIANA',{6:'c1'}],
+    ['011601','VALLEJO ROMAN HERSILIA',{6:'c2'}]
+  ];
+  const rows=[];
+  for(const [id,_name,failures] of workers){
+    for(let turn=1;turn<=25;turn++)rows.push({id,turn,code:failures[turn]||null});
+  }
+  const tx=new sql.Transaction(pool);await tx.begin();
+  try{
+    const existing=await new sql.Request(tx).query(`
+      SELECT s.IdSemana,s.Estado,
+        (SELECT COUNT(*) FROM dbo.ParticipacionSemanal p WHERE p.IdSemana=s.IdSemana) Participantes,
+        (SELECT COUNT(*) FROM dbo.ResolucionTurno r JOIN dbo.ParticipacionSemanal p ON p.IdParticipacion=r.IdParticipacion WHERE p.IdSemana=s.IdSemana) Resoluciones
+      FROM dbo.SemanaEvaluacion s WHERE s.AnioEvaluacion=2026 AND s.NumeroSemana=49`);
+    if(existing.recordset[0]){
+      const e=existing.recordset[0];
+      if(Number(e.Participantes)===12&&Number(e.Resoluciones)===300){await tx.commit();return;}
+      throw new Error('Semana 49 ya existe con datos distintos; importación automática cancelada para no sobrescribirlos.');
+    }
+    const prior=await new sql.Request(tx).query("SELECT TOP(1) FechaInicio,FechaFin FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=2026 AND NumeroSemana=48");
+    if(!prior.recordset[0])throw new Error('No existe la Semana 48; no se puede derivar el período de la Semana 49.');
+    await new sql.Request(tx).query(`
+      DECLARE @inicio date=(SELECT FechaInicio FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=2026 AND NumeroSemana=48);
+      DECLARE @fin date=(SELECT FechaFin FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=2026 AND NumeroSemana=48);
+      INSERT dbo.SemanaEvaluacion(AnioEvaluacion,NumeroSemana,FechaInicio,FechaFin,Estado)
+      VALUES(2026,49,DATEADD(day,7,@inicio),DATEADD(day,7,@fin),'ABIERTA');`);
+    const week=(await new sql.Request(tx).query("SELECT IdSemana FROM dbo.SemanaEvaluacion WHERE AnioEvaluacion=2026 AND NumeroSemana=49")).recordset[0];
+    for(const [id] of workers){
+      const pr=await new sql.Request(tx).input('sem',sql.Int,week.IdSemana).input('sid',sql.NVarChar(100),id).query("INSERT dbo.ParticipacionSemanal(IdSemana,SembradorCorporativoId,TurnoInicio,Estado) OUTPUT INSERTED.IdParticipacion VALUES(@sem,@sid,1,'EN_LA_SEMANA')");
+      await new sql.Request(tx).input('pid',sql.Int,pr.recordset[0].IdParticipacion).query("INSERT dbo.TramoParticipacion(IdParticipacion,TurnoInicio) VALUES(@pid,1)");
+    }
+    await new sql.Request(tx).input('payload',sql.NVarChar(sql.MAX),JSON.stringify(rows)).query(`
+      DECLARE @uid nvarchar(100)=N'importacion-semana49-imagen';
+      DECLARE @sid nvarchar(100),@turn smallint,@code varchar(20),@pid int,@rid bigint,@eid bigint,@iid int;
+      DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+        SELECT j.id,j.turno,j.code FROM OPENJSON(@payload)
+        WITH(id nvarchar(100) '$.id',turno smallint '$.turn',code varchar(20) '$.code') j ORDER BY j.id,j.turno;
+      OPEN cur; FETCH NEXT FROM cur INTO @sid,@turn,@code;
+      WHILE @@FETCH_STATUS=0
+      BEGIN
+        SELECT @pid=p.IdParticipacion FROM dbo.ParticipacionSemanal p
+          JOIN dbo.SemanaEvaluacion s ON s.IdSemana=p.IdSemana
+          WHERE s.AnioEvaluacion=2026 AND s.NumeroSemana=49 AND p.SembradorCorporativoId=@sid;
+        INSERT dbo.ResolucionTurno(IdParticipacion,NumeroTurno,Tipo,UsuarioCorporativoId)
+          VALUES(@pid,@turn,'EVALUACION',@uid); SET @rid=SCOPE_IDENTITY();
+        INSERT dbo.Evaluacion(IdResolucion,UsuarioCorporativoId) VALUES(@rid,@uid); SET @eid=SCOPE_IDENTITY();
+        IF @code IS NOT NULL
+        BEGIN
+          SELECT @iid=IdItem FROM dbo.ItemEvaluacion WHERE Codigo=@code;
+          IF @iid IS NULL THROW 50001,'Ítem de importación no encontrado',1;
+          INSERT dbo.Incumplimiento(IdEvaluacion,IdItem) VALUES(@eid,@iid);
+        END
+        FETCH NEXT FROM cur INTO @sid,@turn,@code;
+      END
+      CLOSE cur; DEALLOCATE cur;`);
+    await tx.commit();
+    console.log('Semana 49 importada desde planilla: 12 sembradores, 300 evaluaciones.');
+  }catch(error){try{await tx.rollback();}catch{}throw error;}
+}
+
 app.use((err,_req,res,_next)=>{console.error(err);res.status(500).json({error:'Error interno',detail:process.env.NODE_ENV==='production'?undefined:err.message});});
 const port=Number(process.env.PORT||3000);
-app.listen(port,()=>console.log(`API Evaluación Siembra en puerto ${port}`));
+app.listen(port,async()=>{
+  console.log(`API Evaluación Siembra en puerto ${port}`);
+  try{await importWeek49FromFieldSheet();}catch(error){console.error('No se pudo importar Semana 49 desde la planilla.',error);}
+});
